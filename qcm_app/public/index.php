@@ -205,10 +205,26 @@ switch ($action) {
     $missingAnswers = [];
     foreach ($questionIds as $qid) {
         $field = 'q_' . $qid;
-        $selected = $_POST[$field] ?? [];
-        if (!is_array($selected)) $selected = [$selected];
-        $selectedIds = array_filter(array_map('intval', $selected));
+        $fieldArray = $field . '[]';
         
+        // Vérifier d'abord le champ avec [] (pour les checkboxes)
+        $selected = $_POST[$fieldArray] ?? null;
+        
+        // Si pas trouvé, vérifier le champ sans [] (pour les radio buttons)
+        if ($selected === null) {
+            $selected = $_POST[$field] ?? null;
+        }
+        
+        // Convertir en tableau si nécessaire
+        if ($selected === null || $selected === '') {
+            $selectedIds = [];
+        } elseif (!is_array($selected)) {
+            $selectedIds = [(int)$selected];
+        } else {
+            $selectedIds = array_filter(array_map('intval', $selected));
+        }
+        
+        // Vérifier si au moins une réponse a été sélectionnée
         if (empty($selectedIds)) {
             $missingAnswers[] = $qid;
         }
@@ -216,9 +232,9 @@ switch ($action) {
     
     if (!empty($missingAnswers)) {
         echo "<h2>Erreur de validation</h2>";
-        echo "<p style='color:red;'>Vous devez répondre à toutes les questions avant de valider l'examen.</p>";
-        echo "<p>Questions non répondues : " . count($missingAnswers) . "</p>";
-        echo '<p><a href="' . BASE_URL . '/?action=take_exam&exam_id=' . $examId . '">Retour à l\'examen</a></p>';
+        echo "<p style='color:red;font-weight:bold;'>Vous devez répondre à toutes les questions avant de valider l'examen.</p>";
+        echo "<p>Nombre de questions non répondues : <strong>" . count($missingAnswers) . "</strong></p>";
+        echo '<p><a href="' . BASE_URL . '/?action=take_exam&exam_id=' . $examId . '">← Retour à l\'examen</a></p>';
         break;
     }
 
