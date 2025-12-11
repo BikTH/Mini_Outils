@@ -66,3 +66,100 @@ function isQuestionCorrect(int $questionId, array $selectedOptionIds): bool
     return $correctIds === $selected;
 }
 
+// Récupère les IDs d'options correctes pour une question
+function getCorrectOptionIds(int $questionId): array
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT id FROM options WHERE question_id = :qid AND is_correct = 1");
+    $stmt->execute([':qid' => $questionId]);
+    return array_map('intval', array_column($stmt->fetchAll(), 'id'));
+}
+
+// Scoring partiel : retourne [partialScore (0..1), isFullCorrect (bool)]
+function computePartialScore(int $questionId, array $selectedOptionIds): array
+{
+    $selected = array_map('intval', array_values(array_filter($selectedOptionIds, function($v){ return $v !== '' && $v !== null; })));
+    $correctIds = getCorrectOptionIds($questionId);
+
+    if (count($correctIds) === 1) {
+        $isFull = (count($selected) === 1 && in_array($correctIds[0], $selected, true));
+        return [$isFull ? 1.0 : 0.0, $isFull];
+    }
+
+    $N = max(1, count($correctIds));
+    $tp = count(array_intersect($selected, $correctIds));
+    $fp = count(array_diff($selected, $correctIds));
+
+    $raw = ($tp - $fp) / $N;
+    if ($raw < 0) $raw = 0;
+    if ($raw > 1) $raw = 1;
+
+    $isFull = ($tp === $N && $fp === 0);
+    return [(float)$raw, (bool)$isFull];
+}
+
+// Sauvegarde d'une tentative et de ses réponses (returns attempt_id)
+function saveAttempt(int $examId, ?string $userIdentifier, string $dateStart, string $dateEnd, float $scoreAuto, float $totalPoints, array $answers): int
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("INSERT INTO attempts (exam_id, user_identifier, date_start, date_end, score_auto, total_points) VALUES (:exam_id, :user_identifier, :date_start, :date_end, :score_auto, :total_points)");
+    $stmt->execute([
+        ':exam_id' => $examId,
+        ':user_identifier' => $userIdentifier,
+        ':date_start' => $dateStart,
+        ':date_end' => $dateEnd,
+        ':score_auto' => $scoreAuto,
+        ':total_points' => $totalPoints
+    ]);
+    $attemptId = (int)$pdo->lastInsertId();
+
+    $stmtAns = $pdo->prepare("INSERT INTO attempt_answers (attempt_id, question_id, selected_option_ids, is_full_correct, partial_score) VALUES (:attempt_id, :question_id, :selected_option_ids, :is_full_correct, :partial_score)");
+    foreach ($answers as $qid => $ansData) {
+        $selectedIds = $ansData['selected'] ?? [];
+        $partial = $ansData['partial'] ?? 0.0;
+        $isFull = !empty($ansData['is_full']) ? 1 : 0;
+        $stmtAns->execute([
+            ':attempt_id' => $attemptId,
+            ':question_id' => $qid,
+            ':selected_option_ids' => json_encode(array_values($selectedIds)),
+            ':is_full_correct' => $isFull,
+            ':partial_score' => $partial
+        ]);
+    }
+    return $attemptId;
+}
+
+// Récupérer une tentative et ses réponses
+function getAttemptById(int $attemptId): ?array
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM attempts WHERE id = :id");
+    $stmt->execute([':id' => $attemptId]);
+    $attempt = $stmt->fetch();
+    if (!$attempt) return null;
+    $stmt2 = $pdo->prepare("SELECT * FROM attempt_answers WHERE attempt_id = :aid");
+    $stmt2->execute([':aid' => $attemptId]);
+    $answers = $stmt2->fetchAll();
+    $attempt['answers'] = $answers;
+    return $attempt;
+}
+
+// Récupérer tentatives par examen
+function getAttemptsForExam(int $examId): array
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM attempts WHERE exam_id = :exam ORDER BY created_at DESC");
+    $stmt->execute([':exam' => $examId]);
+    return $stmt->fetchAll();
+}
+
+// Récupérer tentatives par user_identifier
+function getAttemptsForUser(?string $userIdentifier): array
+{
+    if ($userIdentifier === null || $userIdentifier === '') return [];
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM attempts WHERE user_identifier = :ui ORDER BY created_at DESC");
+    $stmt->execute([':ui' => $userIdentifier]);
+    return $stmt->fetchAll();
+}
+

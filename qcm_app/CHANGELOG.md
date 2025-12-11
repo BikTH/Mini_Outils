@@ -1,5 +1,25 @@
 # Changelog - qcm_app
 
+## [0.2.0] - 2025-12-11
+
+### Ajouté
+- **Historique des tentatives** : Tables `attempts` et `attempt_answers` pour sauvegarder toutes les tentatives
+- **Scoring partiel** : Calcul de score partiel pour QCM à choix multiple (formule : (TP - FP) / N où TP = true positives, FP = false positives, N = nombre de bonnes réponses)
+- **Identifiant utilisateur** : Champ optionnel lors du passage d'épreuve pour enregistrer l'historique personnel
+- **Page "Mon historique"** : Consultation des tentatives par identifiant utilisateur (`action=user_history`)
+- **Page "Historique d'examen"** : Consultation de toutes les tentatives d'un examen (`action=exam_history`)
+- Affichage du score partiel par question dans la correction détaillée
+- Stockage des dates de début et fin d'épreuve
+
+### Modifié
+- **Menu renommé** : "Admin" → "Menu d'édition des examens"
+- Correction détaillée lue depuis la base de données (plus de session uniquement)
+- Score calculé avec scoring partiel au lieu d'un simple comptage binaire
+
+### Technique
+- Nouvelles fonctions dans `app/exam_service.php` : `getCorrectOptionIds()`, `computePartialScore()`, `saveAttempt()`, `getAttemptById()`, `getAttemptsForExam()`, `getAttemptsForUser()`
+- Migration SQL fournie dans `migration_v0.2.0.sql`
+
 ## [0.1.0] - 2025-12-11
 
 ### Ajouté
