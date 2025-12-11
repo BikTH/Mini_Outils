@@ -110,7 +110,7 @@ switch ($action) {
     $_SESSION['exam_start_time'] = date('Y-m-d H:i:s');
     ?>
     <h2>Passer: <?php echo h($exam['titre']); ?></h2>
-    <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam">
+    <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
     <label>Votre identifiant (email ou pseudo) :
         <input type="text" name="user_identifier" value="<?php echo isset($_SESSION['user_identifier']) ? h($_SESSION['user_identifier']) : ''; ?>">
     </label>
@@ -119,20 +119,76 @@ switch ($action) {
     <?php foreach ($questions as $i => $q): 
       $opts = getOptionsForQuestion($q['id']);
       $isMultiple = $q['type'] === 'qcm_multiple';
-      $name = 'q_' . $q['id'] . '[]';
+      $name = 'q_' . $q['id'] . ($isMultiple ? '[]' : '');
+      $fieldsetId = 'question_' . $q['id'];
     ?>
-      <fieldset><legend>Question <?php echo $i+1; ?></legend>
+      <fieldset id="<?php echo $fieldsetId; ?>" data-question-id="<?php echo $q['id']; ?>"><legend>Question <?php echo $i+1; ?></legend>
         <p><?php echo nl2br(h($q['enonce'])); ?></p>
         <?php foreach ($opts as $opt): ?>
           <label>
-            <input type="<?php echo $isMultiple ? 'checkbox' : 'radio'; ?>" name="<?php echo h($name); ?>" value="<?php echo $opt['id']; ?>">
+            <input type="<?php echo $isMultiple ? 'checkbox' : 'radio'; ?>" name="<?php echo h($name); ?>" value="<?php echo $opt['id']; ?>" class="answer-input" data-question-id="<?php echo $q['id']; ?>">
             <?php echo h($opt['label'] . '. ' . $opt['texte']); ?>
           </label><br>
         <?php endforeach; ?>
+        <span class="error-message" id="error_<?php echo $q['id']; ?>" style="color:red;display:none;">Veuillez répondre à cette question.</span>
       </fieldset>
     <?php endforeach; ?>
+      <div id="formError" style="color:red;display:none;margin:10px 0;font-weight:bold;"></div>
       <button type="submit">Valider</button>
     </form>
+    <script>
+    function validateExamForm() {
+        var form = document.getElementById('examForm');
+        var fieldsets = form.querySelectorAll('fieldset[data-question-id]');
+        var hasError = false;
+        var unansweredQuestions = [];
+        
+        // Réinitialiser les messages d'erreur
+        document.getElementById('formError').style.display = 'none';
+        fieldsets.forEach(function(fieldset) {
+            var errorSpan = fieldset.querySelector('.error-message');
+            if (errorSpan) errorSpan.style.display = 'none';
+        });
+        
+        // Vérifier chaque question
+        fieldsets.forEach(function(fieldset) {
+            var questionId = fieldset.getAttribute('data-question-id');
+            var inputs = fieldset.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+            var answered = false;
+            
+            inputs.forEach(function(input) {
+                if (input.checked) {
+                    answered = true;
+                }
+            });
+            
+            if (!answered) {
+                hasError = true;
+                unansweredQuestions.push(questionId);
+                var errorSpan = fieldset.querySelector('.error-message');
+                if (errorSpan) {
+                    errorSpan.style.display = 'inline';
+                    fieldset.style.border = '2px solid red';
+                }
+            } else {
+                fieldset.style.border = '';
+            }
+        });
+        
+        if (hasError) {
+            var errorMsg = 'Veuillez répondre à toutes les questions avant de valider.';
+            if (unansweredQuestions.length > 0) {
+                errorMsg += ' Questions non répondues : ' + unansweredQuestions.length;
+            }
+            document.getElementById('formError').textContent = errorMsg;
+            document.getElementById('formError').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return false;
+        }
+        
+        return true;
+    }
+    </script>
     <?php
     break;
 
@@ -144,6 +200,27 @@ switch ($action) {
 
     $examId = (int)$_SESSION['current_exam_id'];
     $questionIds = $_SESSION['current_question_ids'];
+
+    // Validation : vérifier que toutes les questions ont des réponses
+    $missingAnswers = [];
+    foreach ($questionIds as $qid) {
+        $field = 'q_' . $qid;
+        $selected = $_POST[$field] ?? [];
+        if (!is_array($selected)) $selected = [$selected];
+        $selectedIds = array_filter(array_map('intval', $selected));
+        
+        if (empty($selectedIds)) {
+            $missingAnswers[] = $qid;
+        }
+    }
+    
+    if (!empty($missingAnswers)) {
+        echo "<h2>Erreur de validation</h2>";
+        echo "<p style='color:red;'>Vous devez répondre à toutes les questions avant de valider l'examen.</p>";
+        echo "<p>Questions non répondues : " . count($missingAnswers) . "</p>";
+        echo '<p><a href="' . BASE_URL . '/?action=take_exam&exam_id=' . $examId . '">Retour à l\'examen</a></p>';
+        break;
+    }
 
     $totalPoints = 0.0;
     $scoreSum = 0.0;
