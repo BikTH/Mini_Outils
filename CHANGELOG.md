@@ -1,10 +1,12 @@
 # Changelog - Mini_Outils
 
-## 2025-12-11 - `qcm_app` v0.3.0 (en développement)
-- **Statistiques par examen** : Visualisation détaillée des performances avec métriques (moyenne, meilleur/pire, évolution)
-- **Graphique d'évolution** : Affichage simple des scores dans le temps
-- **Analyse de progression** : Comparaison première vs dernière tentative avec indicateur de tendance
-- Historique groupé par examen avec résumé et accès aux statistiques détaillées
+## 2025-12-11 - `qcm_app` v0.2.0
+- **Historique des tentatives** : Sauvegarde en base de données (tables `attempts` et `attempt_answers`)
+- **Scoring partiel** : Calcul de score partiel pour QCM à choix multiple (formule : (TP - FP) / N)
+- **Identifiant utilisateur** : Champ optionnel pour enregistrer l'historique personnel
+- **Page "Mon historique"** : Consultation des tentatives par identifiant utilisateur
+- **Menu renommé** : "Admin" → "Menu d'édition des examens"
+- Correction détaillée lue depuis la base (plus de session uniquement)
 
 ## 2025-12-11 - `qcm_app` v0.1.0
 - **Première release** : Application PHP minimaliste pour gestion d'examens QCM
