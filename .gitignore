@@ -3,6 +3,7 @@
 Thumbs.db
 *.log
 *.tmp
+WORKFLOW_GIT_LOCAL.md
 
 # Vendor PDF parser (fourni manuellement dans chaque mini-projet)
 */public/vendor_pdfparser/
