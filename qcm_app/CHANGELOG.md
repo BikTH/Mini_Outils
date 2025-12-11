@@ -1,6 +1,6 @@
 # Changelog - qcm_app
 
-## [0.3.0] - 2025-12-11 (en développement)
+## [0.3.0] - 2025-12-11
 
 ### Ajouté
 - **Statistiques par examen** : Page détaillée avec vue d'ensemble des performances
