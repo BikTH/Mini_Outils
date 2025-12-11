@@ -1,24 +1,23 @@
 # Changelog - qcm_app
 
-## [0.2.0] - 2025-12-11
+## [0.3.0] - 2025-12-11
 
 ### Ajouté
-- **Historique des tentatives** : Tables `attempts` et `attempt_answers` pour sauvegarder toutes les tentatives
-- **Scoring partiel** : Calcul de score partiel pour QCM à choix multiple (formule : (TP - FP) / N où TP = true positives, FP = false positives, N = nombre de bonnes réponses)
-- **Identifiant utilisateur** : Champ optionnel lors du passage d'épreuve pour enregistrer l'historique personnel
-- **Page "Mon historique"** : Consultation des tentatives par identifiant utilisateur (`action=user_history`)
-- **Page "Historique d'examen"** : Consultation de toutes les tentatives d'un examen (`action=exam_history`)
-- Affichage du score partiel par question dans la correction détaillée
-- Stockage des dates de début et fin d'épreuve
+- **Statistiques par examen** : Page détaillée avec vue d'ensemble des performances
+- **Groupement par examen** : L'historique personnel groupe maintenant les tentatives par examen
+- **Métriques de performance** : Score moyen, meilleur/pire score, évolution, tendance
+- **Graphique d'évolution** : Visualisation simple des scores dans le temps
+- **Analyse de progression** : Comparaison première vs dernière tentative avec indicateur d'amélioration
+- **Liste chronologique** : Affichage des 10 dernières tentatives avec liens vers les corrections
 
 ### Modifié
-- **Menu renommé** : "Admin" → "Menu d'édition des examens"
-- Correction détaillée lue depuis la base de données (plus de session uniquement)
-- Score calculé avec scoring partiel au lieu d'un simple comptage binaire
+- Page "Mon historique" : Affichage groupé par examen avec résumé et lien vers statistiques
+- Page "Correction" : Support pour affichage depuis `attempt_id` (en plus de la session)
 
 ### Technique
-- Nouvelles fonctions dans `app/exam_service.php` : `getCorrectOptionIds()`, `computePartialScore()`, `saveAttempt()`, `getAttemptById()`, `getAttemptsForExam()`, `getAttemptsForUser()`
-- Migration SQL fournie dans `migration_v0.2.0.sql`
+- Nouvelles fonctions dans `app/exam_service.php` : `getAttemptsForUserAndExam()`, `computeExamStatistics()`
+- Calcul automatique des tendances (amélioration/baisse/stable)
+- Graphique simple en HTML/CSS (barres horizontales colorées)
 
 ## [0.1.0] - 2025-12-11
 

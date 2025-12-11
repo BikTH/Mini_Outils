@@ -163,3 +163,101 @@ function getAttemptsForUser(?string $userIdentifier): array
     return $stmt->fetchAll();
 }
 
+// Récupérer tentatives d'un utilisateur pour un examen spécifique
+function getAttemptsForUserAndExam(?string $userIdentifier, int $examId): array
+{
+    if ($userIdentifier === null || $userIdentifier === '') return [];
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM attempts WHERE user_identifier = :ui AND exam_id = :exam_id ORDER BY created_at ASC");
+    $stmt->execute([
+        ':ui' => $userIdentifier,
+        ':exam_id' => $examId
+    ]);
+    return $stmt->fetchAll();
+}
+
+// Calculer les statistiques pour un examen et un utilisateur
+function computeExamStatistics(array $attempts): array
+{
+    if (empty($attempts)) {
+        return [
+            'total_attempts' => 0,
+            'average_score' => 0,
+            'best_score' => 0,
+            'worst_score' => 0,
+            'last_score' => 0,
+            'first_score' => 0,
+            'improvement' => 0,
+            'trend' => 'none',
+            'scores' => []
+        ];
+    }
+
+    $scores = [];
+    $totalPoints = 0;
+    $bestScore = 0;
+    $worstScore = 100;
+    $firstAttempt = null;
+    $lastAttempt = null;
+
+    foreach ($attempts as $attempt) {
+        $score = (float)$attempt['score_auto'];
+        $maxScore = (float)$attempt['total_points'];
+        $percentage = $maxScore > 0 ? ($score / $maxScore) * 100 : 0;
+        
+        $scores[] = [
+            'score' => $score,
+            'max' => $maxScore,
+            'percentage' => round($percentage, 2),
+            'date' => $attempt['date_end'],
+            'attempt_id' => $attempt['id']
+        ];
+        
+        $totalPoints += $percentage;
+        
+        if ($percentage > $bestScore) $bestScore = $percentage;
+        if ($percentage < $worstScore) $worstScore = $percentage;
+        
+        if ($firstAttempt === null) $firstAttempt = $attempt;
+        $lastAttempt = $attempt;
+    }
+
+    $averageScore = count($attempts) > 0 ? $totalPoints / count($attempts) : 0;
+    
+    // Calculer l'amélioration
+    $firstScore = 0;
+    $lastScore = 0;
+    if ($firstAttempt && $lastAttempt) {
+        $firstMax = (float)$firstAttempt['total_points'];
+        $firstScore = $firstMax > 0 ? ((float)$firstAttempt['score_auto'] / $firstMax) * 100 : 0;
+        $lastMax = (float)$lastAttempt['total_points'];
+        $lastScore = $lastMax > 0 ? ((float)$lastAttempt['score_auto'] / $lastMax) * 100 : 0;
+    }
+    
+    $improvement = $lastScore - $firstScore;
+    
+    // Déterminer la tendance
+    $trend = 'stable';
+    if (count($attempts) >= 2) {
+        if ($improvement > 5) {
+            $trend = 'improving';
+        } elseif ($improvement < -5) {
+            $trend = 'declining';
+        }
+    }
+
+    return [
+        'total_attempts' => count($attempts),
+        'average_score' => round($averageScore, 2),
+        'best_score' => round($bestScore, 2),
+        'worst_score' => round($worstScore, 2),
+        'last_score' => round($lastScore, 2),
+        'first_score' => round($firstScore, 2),
+        'improvement' => round($improvement, 2),
+        'trend' => $trend,
+        'scores' => $scores,
+        'first_date' => $firstAttempt ? $firstAttempt['date_end'] : null,
+        'last_date' => $lastAttempt ? $lastAttempt['date_end'] : null
+    ];
+}
+
