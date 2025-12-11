@@ -1,0 +1,6 @@
+public/vendor_pdfparser/
+uploads/pdf/
+*.log
+.DS_Store
+Thumbs.db
+
