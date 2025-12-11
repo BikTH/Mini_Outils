@@ -1,5 +1,24 @@
 # Changelog - qcm_app
 
+## [0.3.0] - 2025-12-11 (en développement)
+
+### Ajouté
+- **Statistiques par examen** : Page détaillée avec vue d'ensemble des performances
+- **Groupement par examen** : L'historique personnel groupe maintenant les tentatives par examen
+- **Métriques de performance** : Score moyen, meilleur/pire score, évolution, tendance
+- **Graphique d'évolution** : Visualisation simple des scores dans le temps
+- **Analyse de progression** : Comparaison première vs dernière tentative avec indicateur d'amélioration
+- **Liste chronologique** : Affichage des 10 dernières tentatives avec liens vers les corrections
+
+### Modifié
+- Page "Mon historique" : Affichage groupé par examen avec résumé et lien vers statistiques
+- Page "Correction" : Support pour affichage depuis `attempt_id` (en plus de la session)
+
+### Technique
+- Nouvelles fonctions dans `app/exam_service.php` : `getAttemptsForUserAndExam()`, `computeExamStatistics()`
+- Calcul automatique des tendances (amélioration/baisse/stable)
+- Graphique simple en HTML/CSS (barres horizontales colorées)
+
 ## [0.1.0] - 2025-12-11
 
 ### Ajouté
