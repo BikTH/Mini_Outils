@@ -1,0 +1,17 @@
+# Global ignore
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# Vendor PDF parser (fourni manuellement dans chaque mini-projet)
+*/public/vendor_pdfparser/
+*/public/pdfparser/
+
+# Uploads locaux
+*/uploads/pdf/
+
+# Env / IDE
+.idea/
+.vscode/
+
