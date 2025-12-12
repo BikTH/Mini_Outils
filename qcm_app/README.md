@@ -5,7 +5,7 @@ Application PHP minimaliste (procédural, sans framework) pour créer des examen
 ## Prérequis
 - PHP 8+, MySQL/MariaDB, Apache.
 - PDO activé.
-- Bibliothèque Smalot\\PdfParser 2.12.2 placée manuellement dans `public/vendor_pdfparser/` (ou `public/pdfparser/`).  
+- Bibliothèque Smalot\\PdfParser 2.12.2 (https://github.com/smalot/pdfparser/releases/tag/v2.12.2), l'extraire le renommer vendor_pdfparser et placée manuellement dans `public/vendor_pdfparser/`.  
   *Ce dossier est ignoré par Git ; déposez-y le contenu du package (avec `autoload.php` ou au moins `src/`).*
 
 ## Installation rapide
