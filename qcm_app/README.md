@@ -1,4 +1,4 @@
-# QCM App (V0)
+# QCM App 
 
 Application PHP minimaliste (procédural, sans framework) pour créer des examens, importer des QCM depuis des PDF et passer des épreuves avec correction.
 
