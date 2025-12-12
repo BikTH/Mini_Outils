@@ -9,7 +9,7 @@ Application PHP minimaliste (procédural, sans framework) pour créer des examen
   *Ce dossier est ignoré par Git ; déposez-y le contenu du package (avec `autoload.php` ou au moins `src/`).*
 
 ## Installation rapide
-1. Copier le projet dans le docroot (ex. `/var/www/html/qcm_app` ou `C:\\xampp\\htdocs\\qcm`).
+1. Copier le projet dans le docroot (ex. `/var/www/html/qcm` ou `C:\\xampp\\htdocs\\qcm`).
 2. Configurer la BDD (voir script SQL fourni initialement) et ajuster `app/config.php` (`DB_*`, `BASE_URL`).
 3. Placer Smalot\\PdfParser 2.12.2 dans `public/vendor_pdfparser/`.
 4. S’assurer que `uploads/pdf/` est accessible en écriture par le serveur web.
