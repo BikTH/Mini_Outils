@@ -1,5 +1,11 @@
 # Changelog - qcm_app
 
+## [0.3.1] - 2025-12-29
+
+### Corrigé
+- Correction du parsing PDF : fix de la regex `preg_split` qui provoquait des warnings "Unknown modifier ','" lors de l'import (fichier `app/pdf/pdf_parser.php`).
+- Divers ajustements de structure (déplacement vers `app/core`, `app/services`, `app/pdf`) sans modification de la logique métier.
+
 ## [0.3.0] - 2025-12-11
 
 ### Ajouté

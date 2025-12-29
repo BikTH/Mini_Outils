@@ -1,17 +1,4 @@
 <?php
-// app/database.php
-require_once __DIR__ . '/config.php';
-function getPDO(): PDO
-{
-    static $pdo = null;
-    if ($pdo === null) {
-        $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
-        $options = [
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ];
-        $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
-    }
-    return $pdo;
-}
+// app/database.php (shim -> app/core/database.php)
+require_once __DIR__ . '/core/database.php';
 

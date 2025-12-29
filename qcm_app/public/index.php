@@ -2,11 +2,11 @@
 // public/index.php
 session_start();
 require_once __DIR__ . '/../app/config.php';
+require_once __DIR__ . '/../app/core/helpers.php';
 require_once __DIR__ . '/../app/exam_service.php';
 require_once __DIR__ . '/../app/pdf_parser.php';
 
 $action = $_GET['action'] ?? 'home';
-function h($s){ return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 
 ?>
 <!doctype html>
