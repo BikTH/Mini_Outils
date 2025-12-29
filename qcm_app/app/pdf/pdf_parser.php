@@ -69,7 +69,7 @@ function importQuestionsFromPdf(int $examId, string $pdfPath): int
         $block = trim($block);
         if ($block === '') continue;
 
-        $lines = preg_split("/\n+/,", $block);
+    $lines = preg_split("/\n+/", $block);
         $enonceLines = [];
         $options = [];
         $correctLetters = [];
