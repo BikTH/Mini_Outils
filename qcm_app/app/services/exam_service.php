@@ -99,10 +99,10 @@ function computePartialScore(int $questionId, array $selectedOptionIds): array
 }
 
 // Sauvegarde d'une tentative et de ses réponses (returns attempt_id)
-function saveAttempt(int $examId, ?string $userIdentifier, string $dateStart, string $dateEnd, float $scoreAuto, float $totalPoints, array $answers, string $mode = 'training', ?int $timeLimitSeconds = null, int $timeSpentSeconds = 0, bool $isForcedSubmit = false): int
+function saveAttempt(int $examId, ?string $userIdentifier, string $dateStart, string $dateEnd, float $scoreAuto, float $totalPoints, array $answers, string $mode = 'training', ?int $timeLimitSeconds = null, int $timeSpentSeconds = 0, bool $isForcedSubmit = false, ?int $adminChallengeId = null): int
 {
     $pdo = getPDO();
-    $stmt = $pdo->prepare("INSERT INTO attempts (exam_id, user_identifier, date_start, date_end, score_auto, total_points, mode, time_limit_seconds, time_spent_seconds, is_forced_submit) VALUES (:exam_id, :user_identifier, :date_start, :date_end, :score_auto, :total_points, :mode, :time_limit_seconds, :time_spent_seconds, :is_forced_submit)");
+    $stmt = $pdo->prepare("INSERT INTO attempts (exam_id, user_identifier, date_start, date_end, score_auto, total_points, mode, time_limit_seconds, time_spent_seconds, is_forced_submit, admin_challenge_id) VALUES (:exam_id, :user_identifier, :date_start, :date_end, :score_auto, :total_points, :mode, :time_limit_seconds, :time_spent_seconds, :is_forced_submit, :admin_challenge_id)");
     $stmt->execute([
         ':exam_id' => $examId,
         ':user_identifier' => $userIdentifier,
@@ -114,6 +114,7 @@ function saveAttempt(int $examId, ?string $userIdentifier, string $dateStart, st
         ':time_limit_seconds' => $timeLimitSeconds,
         ':time_spent_seconds' => $timeSpentSeconds,
         ':is_forced_submit' => $isForcedSubmit ? 1 : 0
+        ,':admin_challenge_id' => $adminChallengeId
     ]);
     $attemptId = (int)$pdo->lastInsertId();
 
