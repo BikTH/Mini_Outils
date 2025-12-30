@@ -34,7 +34,8 @@ if (!in_array($action, $publicActions, true)) {
       <a href="<?php echo BASE_URL; ?>/?action=user_history">Mon historique</a>
       <?php if (userHasRole('admin')): ?> |
         <a href="<?php echo BASE_URL; ?>/?action=admin_exams">Menu d'édition des examens</a> |
-        <a href="<?php echo BASE_URL; ?>/?action=admin_users">Gestion des utilisateurs</a>
+        <a href="<?php echo BASE_URL; ?>/?action=admin_users">Gestion des utilisateurs</a> |
+        <a href="<?php echo BASE_URL; ?>/?action=admin_challenges">Admin Challenges</a>
       <?php endif; ?>
       | <a href="<?php echo BASE_URL; ?>/?action=logout">Se déconnecter</a>
     <?php else: ?>
@@ -188,89 +189,6 @@ switch ($action) {
     <?php
     break;
 
-  case 'admin_challenges':
-    // Admin interface to create/manage admin_challenge entries
-    require_role('admin');
-    $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
-    $exams = getAllExams();
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-      if (!empty($_POST['action']) && $_POST['action'] === 'create') {
-        $title = trim($_POST['title'] ?? '');
-        $nbq = !empty($_POST['nb_questions']) ? (int)$_POST['nb_questions'] : 0;
-        $time = isset($_POST['time_limit_seconds']) && $_POST['time_limit_seconds'] !== '' ? (int)$_POST['time_limit_seconds'] : null;
-        $createdBy = currentUser()['username'] ?? null;
-        if ($examId && $title && $nbq > 0) {
-          $cid = createAdminChallenge($examId, $title, $nbq, $time, $createdBy);
-          echo "<p>Challenge créé (ID: " . (int)$cid . ")</p>";
-        } else {
-          echo "<p style='color:red;'>Les champs sont incomplets.</p>";
-        }
-      } elseif (!empty($_POST['action']) && $_POST['action'] === 'delete' && !empty($_POST['challenge_id'])) {
-        $cid = (int)$_POST['challenge_id'];
-        deleteAdminChallenge($cid);
-        echo "<p>Challenge supprimé.</p>";
-      }
-    }
-
-    ?>
-    <h2>Gestion des Admin Challenges</h2>
-    <form method="get" action="<?php echo BASE_URL; ?>/">
-      <input type="hidden" name="action" value="admin_challenges">
-      <label>Examen: <select name="exam_id" onchange="this.form.submit()">
-        <option value="">-- Choisir --</option>
-        <?php foreach ($exams as $ex): ?>
-          <option value="<?php echo (int)$ex['id']; ?>" <?php echo ($examId == $ex['id']) ? 'selected' : ''; ?>><?php echo h($ex['titre']); ?></option>
-        <?php endforeach; ?>
-      </select></label>
-    </form>
-    <?php if ($examId):
-      $chals = getAdminChallengesForExam($examId);
-    ?>
-      <h3>Créer un challenge pour l'examen</h3>
-      <form method="post" action="<?php echo BASE_URL; ?>/?action=admin_challenges&exam_id=<?php echo $examId; ?>">
-        <input type="hidden" name="action" value="create">
-        <label>Titre: <input name="title" required></label><br>
-        <label>Nombre de questions: <input type="number" name="nb_questions" min="1" required></label><br>
-        <label>Durée en secondes (optionnel): <input type="number" name="time_limit_seconds" min="5"></label><br>
-        <button type="submit">Créer</button>
-      </form>
-
-      <h3>Challenges existants</h3>
-      <ul>
-      <?php foreach ($chals as $c): ?>
-        <li><?php echo h($c['title']); ?> — <?php echo (int)$c['nb_questions']; ?> q — <?php echo $c['time_limit_seconds'] ? ((int)$c['time_limit_seconds'] . 's') : 'no time'; ?>
-          <form method="post" style="display:inline;" onsubmit="return confirm('Supprimer ?');">
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="challenge_id" value="<?php echo (int)$c['id']; ?>">
-            <button type="submit">Supprimer</button>
-          </form>
-          &nbsp; <a href="<?php echo BASE_URL; ?>/?action=admin_challenge_leaderboard&challenge_id=<?php echo (int)$c['id']; ?>">Voir leaderboard</a>
-        </li>
-      <?php endforeach; ?>
-      </ul>
-    <?php endif; ?>
-    <?php
-    break;
-
-  case 'admin_challenge_leaderboard':
-    $challengeId = isset($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : 0;
-    if (!$challengeId) { echo "<p>Challenge introuvable.</p>"; break; }
-    $challenge = getAdminChallengeById($challengeId);
-    if (!$challenge) { echo "<p>Challenge introuvable.</p>"; break; }
-    $leaders = getLeaderboardForAdminChallenge($challengeId, 10);
-    echo "<h2>Leaderboard: " . h($challenge['title']) . "</h2>";
-    if (empty($leaders)) {
-      echo "<p>Aucune tentative pour ce challenge.</p>";
-    } else {
-      echo "<ol>";
-      foreach ($leaders as $l) {
-        $pct = ($l['total_points'] > 0) ? round((($l['score_auto'] / $l['total_points']) * 100), 2) : 0;
-        echo "<li>" . h($l['user_identifier'] ?? 'anon') . " — " . round($l['score_auto'],2) . " / " . round($l['total_points'],2) . " (" . $pct . "%) — " . h($l['date_end']) . "</li>";
-      }
-      echo "</ol>";
-    }
-    break;
-
   case 'take_exam':
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
@@ -296,64 +214,40 @@ switch ($action) {
             </select>
           </label><br>
           <label>Nombre de questions (training / training_timed) : <input type="number" name="nb_questions" min="1"></label><br>
-          <label>Durée en secondes (training_timed) : <input type="number" name="duration" min="10"></label><br>
+          <label>Durée en minutes (training_timed) : <input type="number" name="duration_minutes" min="1"></label><br>
           <button type="submit">Démarrer</button>
         </form>
         <?php
         break;
     }
 
-  // determine limits according to mode (server-side authoritative)
-  $allowedModes = ['training', 'training_timed', 'official', 'admin_challenge'];
-  if (!in_array($mode, $allowedModes, true)) {
-    $mode = 'training';
-  }
-
-  // sensible defaults
-  $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
-  $timeLimit = null;
-
-  switch ($mode) {
-    case 'official':
-      // official mode is fixed and cannot be overridden by user input
-      $limit = 90;
-      $timeLimit = 3600;
-      break;
-
-    case 'training_timed':
-      // user may request nb_questions and duration but we validate and cap them
-      $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
-      $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
-      if ($timeLimit !== null) {
-        $timeLimit = max(5, min(86400, (int)$timeLimit));
+    // determine limits according to mode
+    if ($mode === 'official') {
+        $limit = 90;
+        $timeLimit = 3600;
+    } elseif ($mode === 'training_timed') {
+    $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+    $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
+    // validate duration
+    if ($timeLimit !== null && $timeLimit < 5) $timeLimit = 5;
+    if ($timeLimit !== null && $timeLimit > 86400) $timeLimit = 86400; // arbitrary sensible cap
+    } elseif ($mode === 'admin_challenge' && userHasRole('admin')) {
+    // admin_challenge: if challenge_id provided, load it
+    $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
+    $limit = $exam['nb_questions'] ?? 10;
+    $timeLimit = null;
+    if ($challengeId) {
+      $challenge = getAdminChallengeById($challengeId);
+      if ($challenge) {
+        $limit = (int)$challenge['nb_questions'] > 0 ? (int)$challenge['nb_questions'] : $limit;
+        $timeLimit = $challenge['time_limit_seconds'] !== null ? (int)$challenge['time_limit_seconds'] : $timeLimit;
       }
-      break;
-
-    case 'admin_challenge':
-      // only admins can use admin_challenge; otherwise fallback to training
-      if (!userHasRole('admin')) {
-        $mode = 'training';
+    }
+    } else {
+        // training
         $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
         $timeLimit = null;
-        break;
-      }
-      $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
-      $limit = $exam['nb_questions'] ?? 10;
-      $timeLimit = null;
-      if ($challengeId) {
-        $challenge = getAdminChallengeById($challengeId);
-        if ($challenge) {
-          $limit = ((int)$challenge['nb_questions'] > 0) ? (int)$challenge['nb_questions'] : $limit;
-          $timeLimit = $challenge['time_limit_seconds'] !== null ? (int)$challenge['time_limit_seconds'] : $timeLimit;
-        }
-      }
-      break;
-
-    default:
-      // training (no timer)
-      $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
-      $timeLimit = null;
-  }
+    }
 
   // cap to available questions if exam defines a limit
   if (!empty($exam['nb_questions']) && (int)$exam['nb_questions'] > 0) {
@@ -377,9 +271,10 @@ switch ($action) {
     ?>
     <h2>Passer: <?php echo h($exam['titre']); ?> (mode: <?php echo h($mode); ?>)</h2>
     <?php if ($timeLimit !== null): ?>
-      <p><strong>Temps limite:</strong> <span id="timeLeftDisplay"><?php echo intval($timeLimit); ?></span> secondes</p>
+      <p><strong>Temps limite:</strong> <span id="timeLeftDisplay"><?php echo gmdate('H:i:s', intval($timeLimit)); ?></span></p>
     <?php endif; ?>
-    <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
+  <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
+  <input type="hidden" name="forced_submit" id="forced_submit" value="0">
     <?php if (isAuthenticated()): ?>
       <p>Vous êtes connecté en tant que <strong><?php echo h(currentUser()['username']); ?></strong>. Votre tentative sera liée à ce compte.</p>
       <input type="hidden" name="user_identifier" value="<?php echo h(currentUser()['username']); ?>">
@@ -413,15 +308,22 @@ switch ($action) {
     </form>
     <?php if ($timeLimit !== null): ?>
     <script>
-    // simple countdown that submits form when time is up (client-side assist)
+    // countdown with hh:mm:ss display; on timeout set forced_submit flag and submit
     (function(){
-      var timeLeft = <?php echo intval($timeLimit); ?>;
+      var timeLeft = <?php echo intval($timeLimit); ?>; // seconds
       var display = document.getElementById('timeLeftDisplay');
+      function fmt(s){
+        var h = Math.floor(s/3600); var m = Math.floor((s%3600)/60); var sec = s%60;
+        return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+      }
+      if (display) display.textContent = fmt(timeLeft);
       var interval = setInterval(function(){
-        timeLeft--; if (display) display.textContent = timeLeft;
+        timeLeft--; if (display) display.textContent = fmt(Math.max(0, timeLeft));
         if (timeLeft <= 0) {
           clearInterval(interval);
-          // auto-submit the form
+          // mark forced and submit
+          var forced = document.getElementById('forced_submit');
+          if (forced) forced.value = '1';
           var form = document.getElementById('examForm');
           if (form) { form.submit(); }
         }
@@ -455,73 +357,26 @@ switch ($action) {
                 }
             });
             
-            if (!$mode) {
+            if (!answered) {
                 hasError = true;
-                $challenges = [];
-                if (userHasRole('admin')) {
-                    $challenges = getAdminChallengesForExam($exam['id']);
-                }
                 unansweredQuestions.push(questionId);
                 var errorSpan = fieldset.querySelector('.error-message');
                 if (errorSpan) {
                     errorSpan.style.display = 'inline';
                     fieldset.style.border = '2px solid red';
-                  <label>Mode:
-                    <select name="mode" id="modeSelect">
-                      <option value="training">Training (choix du nombre de questions)</option>
-                      <option value="training_timed">Training (timed) - choisis durée</option>
-                      <option value="official">Official (90 q, 60 min)</option>
-                      <?php if (userHasRole('admin')): ?>
-                        <option value="admin_challenge">Admin challenge (configuré par admin)</option>
-                      <?php endif; ?>
-                    </select>
-                  </label><br>
-                  <div id="modeRules" style="margin:10px 0;padding:10px;border:1px solid #ddd;background:#f7f7f7;"></div>
-                  <div id="challengeSelector" style="display:none;margin:10px 0;">
-                    <label>Challenge admin: 
-                      <select name="challenge_id">
-                        <option value="">-- choisir --</option>
-                        <?php foreach ($challenges as $c): ?>
-                          <option value="<?php echo (int)$c['id']; ?>"><?php echo h($c['title']); ?> (<?php echo (int)$c['nb_questions']; ?> q<?php echo $c['time_limit_seconds'] ? ', ' . (int)$c['time_limit_seconds'] . 's' : ''; ?>)</option>
-                        <?php endforeach; ?>
-                      </select>
-                    </label>
-                  </div>
-                  <label id="nbQuestionsLabel">Nombre de questions (training / training_timed) : <input type="number" name="nb_questions" min="1"></label><br>
-                  <label id="durationLabel" style="display:none;">Durée en secondes (training_timed) : <input type="number" name="duration" min="10"></label><br>
-                  <button type="submit">Démarrer</button>
-                </form>
-                <script>
-                (function(){
-                  var modeSelect = document.getElementById('modeSelect');
-                  var durationLabel = document.getElementById('durationLabel');
-                  var nbLabel = document.getElementById('nbQuestionsLabel');
-                  var rules = document.getElementById('modeRules');
-                  var challengeSel = document.getElementById('challengeSelector');
-
-                  function updateUI() {
-                    var v = modeSelect.value;
-                    challengeSel.style.display = 'none';
-                    durationLabel.style.display = 'none';
-                    nbLabel.style.display = 'inline';
-                    if (v === 'official') {
-                      rules.innerHTML = '<strong>Official:</strong> 90 questions, 3600s (1 heure). Les paramètres sont fixés côté serveur.';
-                      nbLabel.style.display = 'none';
-                    } else if (v === 'training_timed') {
-                      rules.innerHTML = '<strong>Training (timed):</strong> Choisissez le nombre de questions et la durée (min 5s, max 86400s).';
-                      durationLabel.style.display = 'inline';
-                    } else if (v === 'admin_challenge') {
-                      rules.innerHTML = '<strong>Admin challenge:</strong> lancé selon une configuration définie par un administrateur. Choisissez un challenge.';
-                      challengeSel.style.display = 'block';
-                      nbLabel.style.display = 'none';
-                    } else {
-                      rules.innerHTML = '<strong>Training:</strong> choisissez le nombre de questions. Pas de timer.';
-                    }
-                  }
-                  modeSelect.addEventListener('change', updateUI);
-                  updateUI();
-                })();
-                </script>
+                }
+            } else {
+                fieldset.style.border = '';
+            }
+        });
+        
+        if (hasError) {
+            var errorMsg = 'Veuillez répondre à toutes les questions avant de valider.';
+            if (unansweredQuestions.length > 0) {
+                errorMsg += ' Questions non répondues : ' + unansweredQuestions.length;
+            }
+            document.getElementById('formError').textContent = errorMsg;
+            document.getElementById('formError').style.display = 'block';
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return false;
         }
@@ -541,8 +396,8 @@ switch ($action) {
     $examId = (int)$_SESSION['current_exam_id'];
     $questionIds = $_SESSION['current_question_ids'];
 
-    // Validation : vérifier que toutes les questions ont des réponses
-    $missingAnswers = [];
+  // Validation : vérifier que toutes les questions ont des réponses
+  $missingAnswers = [];
     foreach ($questionIds as $qid) {
         $field = 'q_' . $qid;
         $fieldArray = $field . '[]';
@@ -570,13 +425,15 @@ switch ($action) {
         }
     }
     
-    if (!empty($missingAnswers)) {
-        echo "<h2>Erreur de validation</h2>";
-        echo "<p style='color:red;font-weight:bold;'>Vous devez répondre à toutes les questions avant de valider l'examen.</p>";
-        echo "<p>Nombre de questions non répondues : <strong>" . count($missingAnswers) . "</strong></p>";
-        echo '<p><a href="' . BASE_URL . '/?action=take_exam&exam_id=' . $examId . '">← Retour à l\'examen</a></p>';
-        break;
-    }
+  // Check if this submission was forced by client (timeout)
+  $forcedSubmit = !empty($_POST['forced_submit']) && (string)$_POST['forced_submit'] === '1';
+  if (!empty($missingAnswers) && !$forcedSubmit) {
+    echo "<h2>Erreur de validation</h2>";
+    echo "<p style='color:red;font-weight:bold;'>Vous devez répondre à toutes les questions avant de valider l'examen.</p>";
+    echo "<p>Nombre de questions non répondues : <strong>" . count($missingAnswers) . "</strong></p>";
+    echo '<p><a href="' . BASE_URL . '/?action=take_exam&exam_id=' . $examId . '">← Retour à l\'examen</a></p>';
+    break;
+  }
 
     $totalPoints = 0.0;
     $scoreSum = 0.0;
