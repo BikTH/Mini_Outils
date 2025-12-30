@@ -290,12 +290,6 @@ switch ($action) {
       $fieldsetId = 'question_' . $q['id'];
     ?>
     <hr>
-    <?php foreach ($questions as $i => $q): 
-      $opts = getOptionsForQuestion($q['id']);
-      $isMultiple = $q['type'] === 'qcm_multiple';
-      $name = 'q_' . $q['id'] . ($isMultiple ? '[]' : '');
-      $fieldsetId = 'question_' . $q['id'];
-    ?>
       <fieldset id="<?php echo $fieldsetId; ?>" data-question-id="<?php echo $q['id']; ?>"><legend>Question <?php echo $i+1; ?></legend>
         <p><?php echo nl2br(h($q['enonce'])); ?></p>
         <?php foreach ($opts as $opt): ?>

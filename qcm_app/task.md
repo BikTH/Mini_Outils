@@ -56,6 +56,7 @@ Mises à jour effectuées
 - Migration `003_add_exam_modes.sql` ajoutée et documentée dans `db/MIGRATIONS.md` — ✅
 - Backend : `app/services/exam_service.php` étendu pour stocker `mode`, `time_limit_seconds`, `time_spent_seconds`, `is_forced_submit` — travail initial effectué
 - UX : sélection de mode et stockage en session + affichage compte à rebours minimal implémentés dans `public/index.php` — travail initial effectué
+ - Fix: correction d'une erreur de syntaxe dans `public/index.php` (duplication de boucle foreach) qui empêchait le chargement de l'application — corrigé
 
 Prochaines actions (techniques)
 
