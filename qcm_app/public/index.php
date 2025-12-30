@@ -35,7 +35,8 @@ if (!in_array($action, $publicActions, true)) {
       <?php if (userHasRole('admin')): ?> |
         <a href="<?php echo BASE_URL; ?>/?action=admin_exams">Menu d'édition des examens</a> |
         <a href="<?php echo BASE_URL; ?>/?action=admin_users">Gestion des utilisateurs</a> |
-        <a href="<?php echo BASE_URL; ?>/?action=admin_challenges">Admin Challenges</a>
+        <a href="<?php echo BASE_URL; ?>/?action=admin_challenges">Admin Challenges</a> |
+        <a href="<?php echo BASE_URL; ?>/?action=admin_user_overview">Stats utilisateurs</a>
       <?php endif; ?>
       | <a href="<?php echo BASE_URL; ?>/?action=logout">Se déconnecter</a>
     <?php else: ?>
@@ -78,7 +79,18 @@ switch ($action) {
     else {
       echo "<ul>";
       foreach ($exams as $exam) {
-        echo "<li>" . h($exam['titre']) . " - <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "\">Passer</a></li>";
+        echo "<li>" . h($exam['titre']) . " - <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "\">Passer</a>";
+        // show available admin challenges for this exam (visible to all users)
+        $chals = getAdminChallengesForExam((int)$exam['id']);
+        if (!empty($chals)) {
+          echo "<ul>";
+          foreach ($chals as $c) {
+            echo "<li>Challenge: " . h($c['title']) . " — " . (int)$c['nb_questions'] . " q" . ($c['time_limit_seconds'] ? (" — " . (int)$c['time_limit_seconds'] . 's') : '') . " — <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "&mode=admin_challenge&challenge_id=" . (int)$c['id'] . "\">Participer</a>";
+            echo " &nbsp; <a href=\"" . BASE_URL . "/?action=admin_challenge_leaderboard&challenge_id=" . (int)$c['id'] . "\">Leaderboard</a></li>";
+          }
+          echo "</ul>";
+        }
+        echo "</li>";
       }
       echo "</ul>";
     }
@@ -271,6 +283,60 @@ switch ($action) {
     }
     break;
 
+  case 'admin_user_overview':
+    require_role('admin');
+    $users = listUsers();
+    echo "<h2>Vue d'ensemble des utilisateurs</h2>";
+    if (empty($users)) {
+      echo "<p>Aucun utilisateur.</p>";
+      break;
+    }
+    echo "<table border='1' cellpadding='8' style='border-collapse:collapse;'><tr><th>Utilisateur</th><th>Nom affiché</th><th>Total tentatives</th><th>Tendance</th><th>Actions</th></tr>";
+    foreach ($users as $u) {
+      $uname = $u['username'];
+      $attempts = getAttemptsForUser($uname);
+      $stats = computeExamStatistics($attempts);
+      $trendText = [ 'improving' => '📈 En amélioration', 'declining' => '📉 En baisse', 'stable' => '➡️ Stable' ];
+      echo "<tr>";
+      echo "<td>" . h($uname) . "</td>";
+      echo "<td>" . h($u['display_name'] ?? '') . "</td>";
+      echo "<td style='text-align:right;'>" . (int)$stats['total_attempts'] . "</td>";
+      echo "<td>" . ($trendText[$stats['trend']] ?? h($stats['trend'])) . "</td>";
+      echo "<td><a href='" . BASE_URL . "/?action=user_history&user_identifier=" . urlencode($uname) . "'>Détails par examen</a> | <a href='" . BASE_URL . "/?action=admin_user_details&user_identifier=" . urlencode($uname) . "'>Détails par mode</a></td>";
+      echo "</tr>";
+    }
+    echo "</table>";
+    break;
+
+  case 'admin_user_details':
+    require_role('admin');
+    $ui = isset($_GET['user_identifier']) ? trim($_GET['user_identifier']) : null;
+    if (empty($ui)) { echo "<p>Utilisateur non spécifié.</p>"; break; }
+    $attempts = getAttemptsForUser($ui);
+    if (empty($attempts)) { echo "<p>Aucune tentative pour " . h($ui) . "</p>"; break; }
+    // group by mode across all exams
+    $byMode = [];
+    foreach ($attempts as $a) {
+      $m = $a['mode'] ?? 'training';
+      if (!isset($byMode[$m])) $byMode[$m] = [];
+      $byMode[$m][] = $a;
+    }
+    echo "<h2>Détails par mode pour " . h($ui) . "</h2>";
+    echo "<table border='1' cellpadding='8' style='border-collapse:collapse;'><tr><th>Mode</th><th>Nb tentatives</th><th>Moyenne</th><th>Meilleur</th><th>Dernière</th></tr>";
+    foreach ($byMode as $mkey => $matts) {
+      $s = computeExamStatistics($matts);
+      echo "<tr>";
+      echo "<td>" . h($mkey) . "</td>";
+      echo "<td style='text-align:right;'>" . (int)$s['total_attempts'] . "</td>";
+      echo "<td>" . h($s['average_score']) . "%</td>";
+      echo "<td>" . h($s['best_score']) . "%</td>";
+      echo "<td>" . h($s['last_date'] ?? '') . "</td>";
+      echo "</tr>";
+    }
+    echo "</table>";
+    echo '<p><a href="' . BASE_URL . '/?action=admin_user_overview">← Retour</a></p>';
+    break;
+
   case 'take_exam':
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
@@ -286,17 +352,39 @@ switch ($action) {
           <input type="hidden" name="action" value="take_exam">
           <input type="hidden" name="exam_id" value="<?php echo $exam['id']; ?>">
           <label>Mode:
-            <select name="mode">
+            <select name="mode" id="modeSelect">
               <option value="training">Training (choix du nombre de questions)</option>
               <option value="training_timed">Training (timed) - choisis durée</option>
               <option value="official">Official (90 q, 60 min)</option>
-              <?php if (userHasRole('admin')): ?>
-                <option value="admin_challenge">Admin challenge (configuré par admin)</option>
-              <?php endif; ?>
+              <option value="admin_challenge">Admin challenge (configuré)</option>
             </select>
           </label><br>
-          <label>Nombre de questions (training / training_timed) : <input type="number" name="nb_questions" min="1"></label><br>
-          <label>Durée en minutes (training_timed) : <input type="number" name="duration_minutes" min="1"></label><br>
+          <div id="mode_params">
+            <label>Nombre de questions (training / training_timed) : <input type="number" name="nb_questions" min="1"></label><br>
+            <label id="durationBlock">Durée en minutes (training_timed) : <input type="number" name="duration_minutes" min="1"></label><br>
+            <label id="challengeBlock" style="display:none;">Choisir un challenge: 
+              <select name="challenge_id" id="challengeSelect">
+                <option value="">-- aucun --</option>
+                <?php foreach (getAdminChallengesForExam($exam['id']) as $chc): ?>
+                  <option value="<?php echo (int)$chc['id']; ?>"><?php echo h($chc['title']); ?> — <?php echo (int)$chc['nb_questions']; ?> q<?php echo $chc['time_limit_seconds'] ? ' — ' . (int)$chc['time_limit_seconds'] . 's' : ''; ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label><br>
+          </div>
+          <script>
+            (function(){
+              var modeSel = document.getElementById('modeSelect');
+              var durationBlock = document.getElementById('durationBlock');
+              var challengeBlock = document.getElementById('challengeBlock');
+              function update() {
+                var v = modeSel.value;
+                durationBlock.style.display = (v === 'training_timed') ? 'block' : 'none';
+                challengeBlock.style.display = (v === 'admin_challenge') ? 'block' : 'none';
+              }
+              modeSel.addEventListener('change', update);
+              update();
+            })();
+          </script>
           <button type="submit">Démarrer</button>
         </form>
         <?php
@@ -307,15 +395,16 @@ switch ($action) {
     if ($mode === 'official') {
         $limit = 90;
         $timeLimit = 3600;
-    } elseif ($mode === 'training_timed') {
-    $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
-    $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
-    // validate duration
-    if ($timeLimit !== null && $timeLimit < 5) $timeLimit = 5;
-    if ($timeLimit !== null && $timeLimit > 86400) $timeLimit = 86400; // arbitrary sensible cap
-    } elseif ($mode === 'admin_challenge' && userHasRole('admin')) {
-    // admin_challenge: if challenge_id provided, load it
-    $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
+  } elseif ($mode === 'training_timed') {
+  $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+  // duration_minutes provided by the form -> convert to seconds
+  $timeLimit = !empty($_GET['duration_minutes']) ? (int)$_GET['duration_minutes'] * 60 : null;
+  // validate duration
+  if ($timeLimit !== null && $timeLimit < 5) $timeLimit = 5;
+  if ($timeLimit !== null && $timeLimit > 86400) $timeLimit = 86400; // arbitrary sensible cap
+  } elseif ($mode === 'admin_challenge') {
+  // admin_challenge: if challenge_id provided, load it (participants can start configured challenges)
+  $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
     $limit = $exam['nb_questions'] ?? 10;
     $timeLimit = null;
     if ($challengeId) {
@@ -348,6 +437,17 @@ switch ($action) {
     $_SESSION['current_question_ids'] = array_column($questions, 'id');
     $_SESSION['exam_start_time'] = date('Y-m-d H:i:s');
     $_SESSION['exam_mode'] = $mode;
+    // store admin challenge id when applicable (ensure challenge exists and belongs to this exam)
+    if (!empty($challengeId) && $mode === 'admin_challenge') {
+      $challenge = getAdminChallengeById((int)$challengeId);
+      if ($challenge && (int)$challenge['exam_id'] === (int)$examId) {
+        $_SESSION['admin_challenge_id'] = $challengeId;
+      } else {
+        unset($_SESSION['admin_challenge_id']);
+      }
+    } else {
+      unset($_SESSION['admin_challenge_id']);
+    }
     $_SESSION['exam_time_limit'] = $timeLimit; // seconds or null
 
     ?>
@@ -561,7 +661,8 @@ switch ($action) {
     $isForced = true;
   }
 
-  $attemptId = saveAttempt($examId, $userIdentifier, $dateStart, $dateEnd, $scoreSum, $totalPoints, $answersForSave, $mode, $timeLimit !== null ? (int)$timeLimit : null, (int)$timeSpent, $isForced);
+  $adminChallengeId = $_SESSION['admin_challenge_id'] ?? null;
+  $attemptId = saveAttempt($examId, $userIdentifier, $dateStart, $dateEnd, $scoreSum, $totalPoints, $answersForSave, $mode, $timeLimit !== null ? (int)$timeLimit : null, (int)$timeSpent, $isForced, $adminChallengeId);
 
   $_SESSION['last_attempt_id'] = $attemptId;
 
@@ -718,6 +819,21 @@ switch ($action) {
         echo "(" . count($examAttempts) . " tentative" . (count($examAttempts) > 1 ? "s" : "") . ") ";
         echo "- Dernier score : " . $lastPercentage . "% ";
         echo "- <a href=\"" . BASE_URL . "/?action=user_exam_stats&user_identifier=" . urlencode($ui) . "&exam_id=" . $examId . "\">Voir statistiques détaillées</a>";
+
+        // Breakdown by mode for this exam
+        $byMode = [];
+        foreach ($examAttempts as $a) {
+          $m = $a['mode'] ?? 'training';
+          if (!isset($byMode[$m])) $byMode[$m] = [];
+          $byMode[$m][] = $a;
+        }
+        echo "<ul>";
+        foreach ($byMode as $mkey => $mattempts) {
+          $mstats = computeExamStatistics($mattempts);
+          echo "<li>Mode: <strong>" . h($mkey) . "</strong> — " . (int)$mstats['total_attempts'] . " tentative(s), moyenne: " . h($mstats['average_score']) . "% - <a href=\"" . BASE_URL . "/?action=user_exam_stats&user_identifier=" . urlencode($ui) . "&exam_id=" . $examId . "&mode=" . urlencode($mkey) . "\">Voir par mode</a></li>";
+        }
+        echo "</ul>";
+
         echo "</li>";
     }
     echo "</ul>";
@@ -747,6 +863,11 @@ switch ($action) {
     }
     
     $attempts = getAttemptsForUserAndExam($ui, $examId);
+    // Filter by mode if requested (optional)
+    $filterMode = isset($_GET['mode']) ? trim($_GET['mode']) : null;
+    if ($filterMode !== null && $filterMode !== '') {
+      $attempts = array_values(array_filter($attempts, function($a) use ($filterMode) { return ($a['mode'] ?? '') === $filterMode; }));
+    }
     $stats = computeExamStatistics($attempts);
     
     echo "<h2>Statistiques - " . h($exam['titre']) . "</h2>";

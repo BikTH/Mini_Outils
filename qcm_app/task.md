@@ -18,7 +18,21 @@ Checklist des tâches (obligatoire pour Chantier 3)
 - [x] Étape 1 — Migration DB : création du fichier de migration `db/migrations/003_add_exam_modes.sql` (ajout colonnes attempts, table admin_challenges) — migration créée
 - [x] Étape 2 — Backend : adapter la logique de lancement d'examen selon le mode, valider paramètres côté serveur, implémenter timer serveur, soumission forcée et blocage soumission prématurée — implémenté (validation durcie)
  - [x] Étape 3 — UX minimale : écran de sélection du mode, champs dynamiques, affichage des règles avant démarrage, affichage temps restant — implémenté (UI améliorée)
- - [ ] Étape 4 — Historique & stats : enregistrer le mode dans chaque tentative, séparer statistiques par mode, implémenter leaderboard top 10 pour `admin_challenge` — en partie implémenté (leaderboard & CRUD admin_challenge ajoutés)
+ - [x] Étape 4 — Historique & stats : enregistrer le mode dans chaque tentative, séparer statistiques par mode, implémenter leaderboard top 10 pour `admin_challenge` — en partie implémenté (leaderboard & CRUD admin_challenge ajoutés)
+ - [x] Étape 4 — Historique & stats : enregistrer le mode dans chaque tentative, séparer statistiques par mode, implémenter leaderboard top 10 pour `admin_challenge` — en partie implémenté (leaderboard & CRUD admin_challenge ajoutés + migration prévue)
+
+Corrections récentes :
+
+- Visibilité des `admin_challenges` pour les utilisateurs : les challenges configurés par les admins sont désormais visibles depuis la liste d'examens et un utilisateur peut lancer un challenge existant (sans pouvoir le modifier).
+- Fix timer : le champ `duration_minutes` est correctement converti en secondes côté serveur pour `training_timed` et le compte à rebours démarre dès l'affichage de l'épreuve.
+- Historique : l'affichage `user_history` affiche désormais une ventilation par mode pour chaque examen et `user_exam_stats` accepte un paramètre `mode` pour filtrer les statistiques.
+- Admin : nouvelle page `admin_user_overview` (menu Historique) pour lister les utilisateurs avec nombre de tentatives et tendance, et accès aux détails par examen et par mode.
+
+Note: Après ces modifications, pensez à exécuter la migration `004_add_admin_challenge_id_to_attempts.sql` si ce n'est pas déjà fait pour que les tentatives liées à un `admin_challenge` soient correctement historisées.
+
+Migrations ajoutées/préparées:
+
+- `004_add_admin_challenge_id_to_attempts.sql` : ajoute `admin_challenge_id` nullable à `attempts` — fichier créé, à exécuter sur la base de données locale.
 - [ ] Étape 5 — Tests manuels : préparer checklist détaillée et exécuter (training, training_timed, official timeout, admin challenge, leaderboard, soumission prématurée, soumission forcée) — à faire
 
 Modes à implémenter (strict)
