@@ -4,6 +4,11 @@
 - Corrigé : Correction du parsing PDF (fix preg_split) pour éviter des warnings et garantir l'import des questions.
 - Technique : Réorganisation des sources (app/core, app/services, app/pdf) et ajout de helpers centralisés — aucun changement de logique métier.
 
+## 2025-12-30 - `qcm_app` v0.4.0
+- Ajout : Authentification utilisateur (login/logout), gestion multi-utilisateurs et service d'administration des utilisateurs
+- Ajout : Page d'administration `admin_users` pour création/gestion des comptes
+- Modifié : Accès protégé par défaut — application accessible seulement après authentification (sauf `/login`/`/logout`)
+
 ## 2025-12-11 - `qcm_app` v0.3.0
 - **Statistiques par examen** : Page détaillée avec vue d'ensemble des performances (moyenne, meilleur/pire, évolution)
 - **Groupement par examen** : L'historique personnel groupe maintenant les tentatives par examen

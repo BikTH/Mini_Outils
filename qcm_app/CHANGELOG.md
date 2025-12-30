@@ -6,6 +6,20 @@
 - Correction du parsing PDF : fix de la regex `preg_split` qui provoquait des warnings "Unknown modifier ','" lors de l'import (fichier `app/pdf/pdf_parser.php`).
 - Divers ajustements de structure (déplacement vers `app/core`, `app/services`, `app/pdf`) sans modification de la logique métier.
 
+## [0.4.0] - 2025-12-30
+
+### Ajouté
+- Authentification utilisateur : login/logout, session-based user context
+- Gestion multi-utilisateurs : migration, script de création d'admin, service utilisateur
+- Interface d'administration pour création et gestion des utilisateurs (`admin_users`)
+
+### Modifié
+- Accès protégé par défaut : l'application exige une authentification (sauf `/login` et `/logout`)
+- Historique et passation d'examen liés au compte connecté (session)
+
+### Corrigé
+- Masquage des éléments d'administration pour les utilisateurs non-admin
+
 ## [0.3.0] - 2025-12-11
 
 ### Ajouté
