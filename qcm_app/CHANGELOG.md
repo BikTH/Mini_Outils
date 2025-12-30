@@ -12,10 +12,15 @@
 - Authentification utilisateur : login/logout, session-based user context
 - Gestion multi-utilisateurs : migration, script de création d'admin, service utilisateur
 - Interface d'administration pour création et gestion des utilisateurs (`admin_users`)
+ - Modes d'examen avancés : `training`, `training_timed`, `official`, `admin_challenge`.
+ - Admin Challenges : CRUD pour les administrateurs, challenge visibles aux utilisateurs, leaderboard top 10.
+ - Timer serveur-autoritaire pour les examens chronométrés, soumission forcée automatique à l'expiration.
 
 ### Modifié
 - Accès protégé par défaut : l'application exige une authentification (sauf `/login` et `/logout`)
 - Historique et passation d'examen liés au compte connecté (session)
+ - Historique : ventilation par mode pour chaque examen (moyenne, total, meilleure tentative) et filtrage possible par mode.
+ - Formulaires et UI : sélection de mode améliorée, conversion `duration_minutes` → secondes côté serveur pour `training_timed`, affichage hh:mm:ss du compte à rebours.
 
 ### Corrigé
 - Masquage des éléments d'administration pour les utilisateurs non-admin
