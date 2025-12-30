@@ -34,7 +34,9 @@ if (!in_array($action, $publicActions, true)) {
       <a href="<?php echo BASE_URL; ?>/?action=user_history">Mon historique</a>
       <?php if (userHasRole('admin')): ?> |
         <a href="<?php echo BASE_URL; ?>/?action=admin_exams">Menu d'édition des examens</a> |
-        <a href="<?php echo BASE_URL; ?>/?action=admin_users">Gestion des utilisateurs</a>
+        <a href="<?php echo BASE_URL; ?>/?action=admin_users">Gestion des utilisateurs</a> |
+        <a href="<?php echo BASE_URL; ?>/?action=admin_challenges">Admin Challenges</a> |
+        <a href="<?php echo BASE_URL; ?>/?action=admin_user_overview">Stats utilisateurs</a>
       <?php endif; ?>
       | <a href="<?php echo BASE_URL; ?>/?action=logout">Se déconnecter</a>
     <?php else: ?>
@@ -77,7 +79,18 @@ switch ($action) {
     else {
       echo "<ul>";
       foreach ($exams as $exam) {
-        echo "<li>" . h($exam['titre']) . " - <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "\">Passer</a></li>";
+        echo "<li>" . h($exam['titre']) . " - <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "\">Passer</a>";
+        // show available admin challenges for this exam (visible to all users)
+        $chals = getAdminChallengesForExam((int)$exam['id']);
+        if (!empty($chals)) {
+          echo "<ul>";
+          foreach ($chals as $c) {
+            echo "<li>Challenge: " . h($c['title']) . " — " . (int)$c['nb_questions'] . " q" . ($c['time_limit_seconds'] ? (" — " . (int)$c['time_limit_seconds'] . 's') : '') . " — <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "&mode=admin_challenge&challenge_id=" . (int)$c['id'] . "\">Participer</a>";
+            echo " &nbsp; <a href=\"" . BASE_URL . "/?action=admin_challenge_leaderboard&challenge_id=" . (int)$c['id'] . "\">Leaderboard</a></li>";
+          }
+          echo "</ul>";
+        }
+        echo "</li>";
       }
       echo "</ul>";
     }
@@ -188,24 +201,262 @@ switch ($action) {
     <?php
     break;
 
+  case 'admin_challenges':
+    require_role('admin');
+    $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
+    $exams = getAllExams();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+      if (!empty($_POST['action']) && $_POST['action'] === 'create') {
+        $title = trim($_POST['title'] ?? '');
+        $nbq = !empty($_POST['nb_questions']) ? (int)$_POST['nb_questions'] : 0;
+        $time = isset($_POST['time_limit_seconds']) && $_POST['time_limit_seconds'] !== '' ? (int)$_POST['time_limit_seconds'] : null;
+        $createdBy = currentUser()['username'] ?? null;
+        if ($examId && $title && $nbq > 0) {
+          $cid = createAdminChallenge($examId, $title, $nbq, $time, $createdBy);
+          echo "<p>Challenge créé (ID: " . (int)$cid . ")</p>";
+        } else {
+          echo "<p style='color:red;'>Les champs sont incomplets.</p>";
+        }
+      } elseif (!empty($_POST['action']) && $_POST['action'] === 'delete' && !empty($_POST['challenge_id'])) {
+        $cid = (int)$_POST['challenge_id'];
+        deleteAdminChallenge($cid);
+        echo "<p>Challenge supprimé.</p>";
+      }
+    }
+
+    ?>
+    <h2>Gestion des Admin Challenges</h2>
+    <form method="get" action="<?php echo BASE_URL; ?>/">
+      <input type="hidden" name="action" value="admin_challenges">
+      <label>Examen: <select name="exam_id" onchange="this.form.submit()">
+        <option value="">-- Choisir --</option>
+        <?php foreach ($exams as $ex): ?>
+          <option value="<?php echo (int)$ex['id']; ?>" <?php echo ($examId == $ex['id']) ? 'selected' : ''; ?>><?php echo h($ex['titre']); ?></option>
+        <?php endforeach; ?>
+      </select></label>
+    </form>
+    <?php if ($examId):
+      $chals = getAdminChallengesForExam($examId);
+    ?>
+      <h3>Créer un challenge pour l'examen</h3>
+      <form method="post" action="<?php echo BASE_URL; ?>/?action=admin_challenges&exam_id=<?php echo $examId; ?>">
+        <input type="hidden" name="action" value="create">
+        <label>Titre: <input name="title" required></label><br>
+        <label>Nombre de questions: <input type="number" name="nb_questions" min="1" required></label><br>
+        <label>Durée en secondes (optionnel): <input type="number" name="time_limit_seconds" min="5"></label><br>
+        <button type="submit">Créer</button>
+      </form>
+
+      <h3>Challenges existants</h3>
+      <ul>
+      <?php foreach ($chals as $c): ?>
+        <li><?php echo h($c['title']); ?> — <?php echo (int)$c['nb_questions']; ?> q — <?php echo $c['time_limit_seconds'] ? ((int)$c['time_limit_seconds'] . 's') : 'no time'; ?>
+          <form method="post" style="display:inline;" onsubmit="return confirm('Supprimer ?');">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="challenge_id" value="<?php echo (int)$c['id']; ?>">
+            <button type="submit">Supprimer</button>
+          </form>
+          &nbsp; <a href="<?php echo BASE_URL; ?>/?action=admin_challenge_leaderboard&challenge_id=<?php echo (int)$c['id']; ?>">Voir leaderboard</a>
+        </li>
+      <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+    <?php
+    break;
+
+  case 'admin_challenge_leaderboard':
+    $challengeId = isset($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : 0;
+    if (!$challengeId) { echo "<p>Challenge introuvable.</p>"; break; }
+    $challenge = getAdminChallengeById($challengeId);
+    if (!$challenge) { echo "<p>Challenge introuvable.</p>"; break; }
+    $leaders = getLeaderboardForAdminChallenge($challengeId, 10);
+    echo "<h2>Leaderboard: " . h($challenge['title']) . "</h2>";
+    if (empty($leaders)) {
+      echo "<p>Aucune tentative pour ce challenge.</p>";
+    } else {
+      echo "<ol>";
+      foreach ($leaders as $l) {
+        $pct = ($l['total_points'] > 0) ? round((($l['score_auto'] / $l['total_points']) * 100), 2) : 0;
+        echo "<li>" . h($l['user_identifier'] ?? 'anon') . " — " . round($l['score_auto'],2) . " / " . round($l['total_points'],2) . " (" . $pct . "%) — " . h($l['date_end']) . "</li>";
+      }
+      echo "</ol>";
+    }
+    break;
+
+  case 'admin_user_overview':
+    require_role('admin');
+    $users = listUsers();
+    echo "<h2>Vue d'ensemble des utilisateurs</h2>";
+    if (empty($users)) {
+      echo "<p>Aucun utilisateur.</p>";
+      break;
+    }
+    echo "<table border='1' cellpadding='8' style='border-collapse:collapse;'><tr><th>Utilisateur</th><th>Nom affiché</th><th>Total tentatives</th><th>Tendance</th><th>Actions</th></tr>";
+    foreach ($users as $u) {
+      $uname = $u['username'];
+      $attempts = getAttemptsForUser($uname);
+      $stats = computeExamStatistics($attempts);
+      $trendText = [ 'improving' => '📈 En amélioration', 'declining' => '📉 En baisse', 'stable' => '➡️ Stable' ];
+      echo "<tr>";
+      echo "<td>" . h($uname) . "</td>";
+      echo "<td>" . h($u['display_name'] ?? '') . "</td>";
+      echo "<td style='text-align:right;'>" . (int)$stats['total_attempts'] . "</td>";
+      echo "<td>" . ($trendText[$stats['trend']] ?? h($stats['trend'])) . "</td>";
+      echo "<td><a href='" . BASE_URL . "/?action=user_history&user_identifier=" . urlencode($uname) . "'>Détails par examen</a> | <a href='" . BASE_URL . "/?action=admin_user_details&user_identifier=" . urlencode($uname) . "'>Détails par mode</a></td>";
+      echo "</tr>";
+    }
+    echo "</table>";
+    break;
+
+  case 'admin_user_details':
+    require_role('admin');
+    $ui = isset($_GET['user_identifier']) ? trim($_GET['user_identifier']) : null;
+    if (empty($ui)) { echo "<p>Utilisateur non spécifié.</p>"; break; }
+    $attempts = getAttemptsForUser($ui);
+    if (empty($attempts)) { echo "<p>Aucune tentative pour " . h($ui) . "</p>"; break; }
+    // group by mode across all exams
+    $byMode = [];
+    foreach ($attempts as $a) {
+      $m = $a['mode'] ?? 'training';
+      if (!isset($byMode[$m])) $byMode[$m] = [];
+      $byMode[$m][] = $a;
+    }
+    echo "<h2>Détails par mode pour " . h($ui) . "</h2>";
+    echo "<table border='1' cellpadding='8' style='border-collapse:collapse;'><tr><th>Mode</th><th>Nb tentatives</th><th>Moyenne</th><th>Meilleur</th><th>Dernière</th></tr>";
+    foreach ($byMode as $mkey => $matts) {
+      $s = computeExamStatistics($matts);
+      echo "<tr>";
+      echo "<td>" . h($mkey) . "</td>";
+      echo "<td style='text-align:right;'>" . (int)$s['total_attempts'] . "</td>";
+      echo "<td>" . h($s['average_score']) . "%</td>";
+      echo "<td>" . h($s['best_score']) . "%</td>";
+      echo "<td>" . h($s['last_date'] ?? '') . "</td>";
+      echo "</tr>";
+    }
+    echo "</table>";
+    echo '<p><a href="' . BASE_URL . '/?action=admin_user_overview">← Retour</a></p>';
+    break;
+
   case 'take_exam':
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
     if (!$exam) { echo "<p>Examen introuvable.</p>"; break; }
+
+    // Mode selection / parameters
+    $mode = $_GET['mode'] ?? $_POST['mode'] ?? null;
+    if (!$mode) {
+        // show selection form
+        ?>
+        <h2>Choisir le mode pour: <?php echo h($exam['titre']); ?></h2>
+        <form method="get" action="<?php echo BASE_URL; ?>/">
+          <input type="hidden" name="action" value="take_exam">
+          <input type="hidden" name="exam_id" value="<?php echo $exam['id']; ?>">
+          <label>Mode:
+            <select name="mode" id="modeSelect">
+              <option value="training">Training (choix du nombre de questions)</option>
+              <option value="training_timed">Training (timed) - choisis durée</option>
+              <option value="official">Official (90 q, 60 min)</option>
+              <option value="admin_challenge">Admin challenge (configuré)</option>
+            </select>
+          </label><br>
+          <div id="mode_params">
+            <label>Nombre de questions (training / training_timed) : <input type="number" name="nb_questions" min="1"></label><br>
+            <label id="durationBlock">Durée en minutes (training_timed) : <input type="number" name="duration_minutes" min="1"></label><br>
+            <label id="challengeBlock" style="display:none;">Choisir un challenge: 
+              <select name="challenge_id" id="challengeSelect">
+                <option value="">-- aucun --</option>
+                <?php foreach (getAdminChallengesForExam($exam['id']) as $chc): ?>
+                  <option value="<?php echo (int)$chc['id']; ?>"><?php echo h($chc['title']); ?> — <?php echo (int)$chc['nb_questions']; ?> q<?php echo $chc['time_limit_seconds'] ? ' — ' . (int)$chc['time_limit_seconds'] . 's' : ''; ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label><br>
+          </div>
+          <script>
+            (function(){
+              var modeSel = document.getElementById('modeSelect');
+              var durationBlock = document.getElementById('durationBlock');
+              var challengeBlock = document.getElementById('challengeBlock');
+              function update() {
+                var v = modeSel.value;
+                durationBlock.style.display = (v === 'training_timed') ? 'block' : 'none';
+                challengeBlock.style.display = (v === 'admin_challenge') ? 'block' : 'none';
+              }
+              modeSel.addEventListener('change', update);
+              update();
+            })();
+          </script>
+          <button type="submit">Démarrer</button>
+        </form>
+        <?php
+        break;
+    }
+
+    // determine limits according to mode
+    if ($mode === 'official') {
+        $limit = 90;
+        $timeLimit = 3600;
+  } elseif ($mode === 'training_timed') {
+  $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+  // duration_minutes provided by the form -> convert to seconds
+  $timeLimit = !empty($_GET['duration_minutes']) ? (int)$_GET['duration_minutes'] * 60 : null;
+  // validate duration
+  if ($timeLimit !== null && $timeLimit < 5) $timeLimit = 5;
+  if ($timeLimit !== null && $timeLimit > 86400) $timeLimit = 86400; // arbitrary sensible cap
+  } elseif ($mode === 'admin_challenge') {
+  // admin_challenge: if challenge_id provided, load it (participants can start configured challenges)
+  $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
     $limit = $exam['nb_questions'] ?? 10;
-    $questions = getRandomQuestionsForExam($examId, (int)$limit);
+    $timeLimit = null;
+    if ($challengeId) {
+      $challenge = getAdminChallengeById($challengeId);
+      if ($challenge) {
+        $limit = (int)$challenge['nb_questions'] > 0 ? (int)$challenge['nb_questions'] : $limit;
+        $timeLimit = $challenge['time_limit_seconds'] !== null ? (int)$challenge['time_limit_seconds'] : $timeLimit;
+      }
+    }
+    } else {
+        // training
+        $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+        $timeLimit = null;
+    }
+
+  // cap to available questions if exam defines a limit
+  if (!empty($exam['nb_questions']) && (int)$exam['nb_questions'] > 0) {
+    $limit = min((int)$limit, (int)$exam['nb_questions']);
+  }
+  $questions = getRandomQuestionsForExam($examId, (int)$limit);
     if (empty($questions)) { echo "<p>Aucune question disponible.</p>"; break; }
+
     // When a logged-in user starts an exam, link the attempt to their account automatically
     if (isAuthenticated()) {
       $_SESSION['user_identifier'] = currentUser()['username'];
     }
 
+    // store session data for timer and mode
     $_SESSION['current_exam_id'] = $examId;
     $_SESSION['current_question_ids'] = array_column($questions, 'id');
     $_SESSION['exam_start_time'] = date('Y-m-d H:i:s');
+    $_SESSION['exam_mode'] = $mode;
+    // store admin challenge id when applicable (ensure challenge exists and belongs to this exam)
+    if (!empty($challengeId) && $mode === 'admin_challenge') {
+      $challenge = getAdminChallengeById((int)$challengeId);
+      if ($challenge && (int)$challenge['exam_id'] === (int)$examId) {
+        $_SESSION['admin_challenge_id'] = $challengeId;
+      } else {
+        unset($_SESSION['admin_challenge_id']);
+      }
+    } else {
+      unset($_SESSION['admin_challenge_id']);
+    }
+    $_SESSION['exam_time_limit'] = $timeLimit; // seconds or null
+
     ?>
-    <h2>Passer: <?php echo h($exam['titre']); ?></h2>
-    <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
+    <h2>Passer: <?php echo h($exam['titre']); ?> (mode: <?php echo h($mode); ?>)</h2>
+    <?php if ($timeLimit !== null): ?>
+      <p><strong>Temps limite:</strong> <span id="timeLeftDisplay"><?php echo gmdate('H:i:s', intval($timeLimit)); ?></span></p>
+    <?php endif; ?>
+  <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
+  <input type="hidden" name="forced_submit" id="forced_submit" value="0">
     <?php if (isAuthenticated()): ?>
       <p>Vous êtes connecté en tant que <strong><?php echo h(currentUser()['username']); ?></strong>. Votre tentative sera liée à ce compte.</p>
       <input type="hidden" name="user_identifier" value="<?php echo h(currentUser()['username']); ?>">
@@ -222,6 +473,7 @@ switch ($action) {
       $name = 'q_' . $q['id'] . ($isMultiple ? '[]' : '');
       $fieldsetId = 'question_' . $q['id'];
     ?>
+    <hr>
       <fieldset id="<?php echo $fieldsetId; ?>" data-question-id="<?php echo $q['id']; ?>"><legend>Question <?php echo $i+1; ?></legend>
         <p><?php echo nl2br(h($q['enonce'])); ?></p>
         <?php foreach ($opts as $opt): ?>
@@ -236,6 +488,31 @@ switch ($action) {
       <div id="formError" style="color:red;display:none;margin:10px 0;font-weight:bold;"></div>
       <button type="submit">Valider</button>
     </form>
+    <?php if ($timeLimit !== null): ?>
+    <script>
+    // countdown with hh:mm:ss display; on timeout set forced_submit flag and submit
+    (function(){
+      var timeLeft = <?php echo intval($timeLimit); ?>; // seconds
+      var display = document.getElementById('timeLeftDisplay');
+      function fmt(s){
+        var h = Math.floor(s/3600); var m = Math.floor((s%3600)/60); var sec = s%60;
+        return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+      }
+      if (display) display.textContent = fmt(timeLeft);
+      var interval = setInterval(function(){
+        timeLeft--; if (display) display.textContent = fmt(Math.max(0, timeLeft));
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          // mark forced and submit
+          var forced = document.getElementById('forced_submit');
+          if (forced) forced.value = '1';
+          var form = document.getElementById('examForm');
+          if (form) { form.submit(); }
+        }
+      }, 1000);
+    })();
+    </script>
+    <?php endif; ?>
     <script>
     function validateExamForm() {
         var form = document.getElementById('examForm');
@@ -301,8 +578,8 @@ switch ($action) {
     $examId = (int)$_SESSION['current_exam_id'];
     $questionIds = $_SESSION['current_question_ids'];
 
-    // Validation : vérifier que toutes les questions ont des réponses
-    $missingAnswers = [];
+  // Validation : vérifier que toutes les questions ont des réponses
+  $missingAnswers = [];
     foreach ($questionIds as $qid) {
         $field = 'q_' . $qid;
         $fieldArray = $field . '[]';
@@ -330,13 +607,15 @@ switch ($action) {
         }
     }
     
-    if (!empty($missingAnswers)) {
-        echo "<h2>Erreur de validation</h2>";
-        echo "<p style='color:red;font-weight:bold;'>Vous devez répondre à toutes les questions avant de valider l'examen.</p>";
-        echo "<p>Nombre de questions non répondues : <strong>" . count($missingAnswers) . "</strong></p>";
-        echo '<p><a href="' . BASE_URL . '/?action=take_exam&exam_id=' . $examId . '">← Retour à l\'examen</a></p>';
-        break;
-    }
+  // Check if this submission was forced by client (timeout)
+  $forcedSubmit = !empty($_POST['forced_submit']) && (string)$_POST['forced_submit'] === '1';
+  if (!empty($missingAnswers) && !$forcedSubmit) {
+    echo "<h2>Erreur de validation</h2>";
+    echo "<p style='color:red;font-weight:bold;'>Vous devez répondre à toutes les questions avant de valider l'examen.</p>";
+    echo "<p>Nombre de questions non répondues : <strong>" . count($missingAnswers) . "</strong></p>";
+    echo '<p><a href="' . BASE_URL . '/?action=take_exam&exam_id=' . $examId . '">← Retour à l\'examen</a></p>';
+    break;
+  }
 
     $totalPoints = 0.0;
     $scoreSum = 0.0;
@@ -371,13 +650,25 @@ switch ($action) {
         ];
     }
 
-    $attemptId = saveAttempt($examId, $userIdentifier, $dateStart, $dateEnd, $scoreSum, $totalPoints, $answersForSave);
+  // Timer & mode metadata
+  $mode = $_SESSION['exam_mode'] ?? 'training';
+  $timeLimit = $_SESSION['exam_time_limit'] ?? null;
+  $started = strtotime($dateStart);
+  $ended = strtotime($dateEnd);
+  $timeSpent = max(0, $ended - $started);
+  $isForced = false;
+  if ($timeLimit !== null && $timeSpent >= (int)$timeLimit) {
+    $isForced = true;
+  }
 
-    $_SESSION['last_attempt_id'] = $attemptId;
+  $adminChallengeId = $_SESSION['admin_challenge_id'] ?? null;
+  $attemptId = saveAttempt($examId, $userIdentifier, $dateStart, $dateEnd, $scoreSum, $totalPoints, $answersForSave, $mode, $timeLimit !== null ? (int)$timeLimit : null, (int)$timeSpent, $isForced, $adminChallengeId);
 
-    echo "<h2>Résultat</h2>";
-    echo "<p>Score : " . round($scoreSum, 2) . " / " . round($totalPoints, 2) . "</p>";
-    echo '<p><a href="' . BASE_URL . '/?action=show_correction&attempt_id=' . $attemptId . '">Voir la correction détaillée</a></p>';
+  $_SESSION['last_attempt_id'] = $attemptId;
+
+  echo "<h2>Résultat</h2>";
+  echo "<p>Score : " . round($scoreSum, 2) . " / " . round($totalPoints, 2) . "</p>";
+  echo '<p><a href="' . BASE_URL . '/?action=show_correction&attempt_id=' . $attemptId . '">Voir la correction détaillée</a></p>';
     break;
 
   case 'show_correction':
@@ -528,6 +819,21 @@ switch ($action) {
         echo "(" . count($examAttempts) . " tentative" . (count($examAttempts) > 1 ? "s" : "") . ") ";
         echo "- Dernier score : " . $lastPercentage . "% ";
         echo "- <a href=\"" . BASE_URL . "/?action=user_exam_stats&user_identifier=" . urlencode($ui) . "&exam_id=" . $examId . "\">Voir statistiques détaillées</a>";
+
+        // Breakdown by mode for this exam
+        $byMode = [];
+        foreach ($examAttempts as $a) {
+          $m = $a['mode'] ?? 'training';
+          if (!isset($byMode[$m])) $byMode[$m] = [];
+          $byMode[$m][] = $a;
+        }
+        echo "<ul>";
+        foreach ($byMode as $mkey => $mattempts) {
+          $mstats = computeExamStatistics($mattempts);
+          echo "<li>Mode: <strong>" . h($mkey) . "</strong> — " . (int)$mstats['total_attempts'] . " tentative(s), moyenne: " . h($mstats['average_score']) . "% - <a href=\"" . BASE_URL . "/?action=user_exam_stats&user_identifier=" . urlencode($ui) . "&exam_id=" . $examId . "&mode=" . urlencode($mkey) . "\">Voir par mode</a></li>";
+        }
+        echo "</ul>";
+
         echo "</li>";
     }
     echo "</ul>";
@@ -557,6 +863,11 @@ switch ($action) {
     }
     
     $attempts = getAttemptsForUserAndExam($ui, $examId);
+    // Filter by mode if requested (optional)
+    $filterMode = isset($_GET['mode']) ? trim($_GET['mode']) : null;
+    if ($filterMode !== null && $filterMode !== '') {
+      $attempts = array_values(array_filter($attempts, function($a) use ($filterMode) { return ($a['mode'] ?? '') === $filterMode; }));
+    }
     $stats = computeExamStatistics($attempts);
     
     echo "<h2>Statistiques - " . h($exam['titre']) . "</h2>";
