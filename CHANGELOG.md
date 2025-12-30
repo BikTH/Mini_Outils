@@ -8,6 +8,10 @@
 - Ajout : Authentification utilisateur (login/logout), gestion multi-utilisateurs et service d'administration des utilisateurs
 - Ajout : Page d'administration `admin_users` pour création/gestion des comptes
 - Modifié : Accès protégé par défaut — application accessible seulement après authentification (sauf `/login`/`/logout`)
+ - Ajout : Modes d'examen avancés (`training`, `training_timed`, `official`, `admin_challenge`), timer serveur-autoritaire et soumission forcée automatique
+ - Ajout : Admin Challenges (CRUD) et leaderboard; challenges visibles depuis la liste d'examens pour participation
+ - Modifié : Historique et statistiques enrichies (ventilation par mode, filtrage par mode)
+ - Note : migration `qcm_app/db/migrations/004_add_admin_challenge_id_to_attempts.sql` préparée; à exécuter localement pour lier les tentatives aux challenges
 
 ## 2025-12-11 - `qcm_app` v0.3.0
 - **Statistiques par examen** : Page détaillée avec vue d'ensemble des performances (moyenne, meilleur/pire, évolution)
