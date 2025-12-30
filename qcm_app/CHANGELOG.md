@@ -6,16 +6,34 @@
 - Correction du parsing PDF : fix de la regex `preg_split` qui provoquait des warnings "Unknown modifier ','" lors de l'import (fichier `app/pdf/pdf_parser.php`).
 - Divers ajustements de structure (déplacement vers `app/core`, `app/services`, `app/pdf`) sans modification de la logique métier.
 
+## [0.5.0] - 2025-12-30
+
+### Ajouté
+- Stabilisation du leaderboard pour `admin_challenge` (source de vérité centralisée, unicité par utilisateur, règles de classement strictes).
+
+### Modifié
+- Consolidation de la logique de scoring/leaderboard dans `app/services/stats_service.php`.
+- Amélioration de l'affichage du leaderboard (rang, temps passé HH:MM:SS, indication des soumissions forcées) dans l'UI admin.
+- Nettoyage et mise à jour de la documentation de projet (`Global_Context_&_Goal.md`, `task.md`).
+
+### Technique
+- Ajout de tests manuels et checklist pour le Chantier 3 (modes & timer).
+
 ## [0.4.0] - 2025-12-30
 
 ### Ajouté
 - Authentification utilisateur : login/logout, session-based user context
 - Gestion multi-utilisateurs : migration, script de création d'admin, service utilisateur
 - Interface d'administration pour création et gestion des utilisateurs (`admin_users`)
+ - Modes d'examen avancés : `training`, `training_timed`, `official`, `admin_challenge`.
+ - Admin Challenges : CRUD pour les administrateurs, challenge visibles aux utilisateurs, leaderboard top 10.
+ - Timer serveur-autoritaire pour les examens chronométrés, soumission forcée automatique à l'expiration.
 
 ### Modifié
 - Accès protégé par défaut : l'application exige une authentification (sauf `/login` et `/logout`)
 - Historique et passation d'examen liés au compte connecté (session)
+ - Historique : ventilation par mode pour chaque examen (moyenne, total, meilleure tentative) et filtrage possible par mode.
+ - Formulaires et UI : sélection de mode améliorée, conversion `duration_minutes` → secondes côté serveur pour `training_timed`, affichage hh:mm:ss du compte à rebours.
 
 ### Corrigé
 - Masquage des éléments d'administration pour les utilisateurs non-admin

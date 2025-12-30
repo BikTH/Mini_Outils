@@ -99,17 +99,22 @@ function computePartialScore(int $questionId, array $selectedOptionIds): array
 }
 
 // Sauvegarde d'une tentative et de ses réponses (returns attempt_id)
-function saveAttempt(int $examId, ?string $userIdentifier, string $dateStart, string $dateEnd, float $scoreAuto, float $totalPoints, array $answers): int
+function saveAttempt(int $examId, ?string $userIdentifier, string $dateStart, string $dateEnd, float $scoreAuto, float $totalPoints, array $answers, string $mode = 'training', ?int $timeLimitSeconds = null, int $timeSpentSeconds = 0, bool $isForcedSubmit = false, ?int $adminChallengeId = null): int
 {
     $pdo = getPDO();
-    $stmt = $pdo->prepare("INSERT INTO attempts (exam_id, user_identifier, date_start, date_end, score_auto, total_points) VALUES (:exam_id, :user_identifier, :date_start, :date_end, :score_auto, :total_points)");
+    $stmt = $pdo->prepare("INSERT INTO attempts (exam_id, user_identifier, date_start, date_end, score_auto, total_points, mode, time_limit_seconds, time_spent_seconds, is_forced_submit, admin_challenge_id) VALUES (:exam_id, :user_identifier, :date_start, :date_end, :score_auto, :total_points, :mode, :time_limit_seconds, :time_spent_seconds, :is_forced_submit, :admin_challenge_id)");
     $stmt->execute([
         ':exam_id' => $examId,
         ':user_identifier' => $userIdentifier,
         ':date_start' => $dateStart,
         ':date_end' => $dateEnd,
         ':score_auto' => $scoreAuto,
-        ':total_points' => $totalPoints
+        ':total_points' => $totalPoints,
+        ':mode' => $mode,
+        ':time_limit_seconds' => $timeLimitSeconds,
+        ':time_spent_seconds' => $timeSpentSeconds,
+        ':is_forced_submit' => $isForcedSubmit ? 1 : 0
+        ,':admin_challenge_id' => $adminChallengeId
     ]);
     $attemptId = (int)$pdo->lastInsertId();
 
@@ -174,6 +179,73 @@ function getAttemptsForUserAndExam(?string $userIdentifier, int $examId): array
         ':exam_id' => $examId
     ]);
     return $stmt->fetchAll();
+}
+
+// Get admin_challenge by id
+function getAdminChallengeById(int $challengeId): ?array
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM admin_challenges WHERE id = :id");
+    $stmt->execute([':id' => $challengeId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+// Get all admin challenges for an exam
+function getAdminChallengesForExam(int $examId): array
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM admin_challenges WHERE exam_id = :exam_id ORDER BY created_at DESC");
+    $stmt->execute([':exam_id' => $examId]);
+    return $stmt->fetchAll();
+}
+
+// Create a new admin challenge
+function createAdminChallenge(int $examId, string $title, int $nbQuestions, ?int $timeLimitSeconds = null, ?string $createdBy = null): int
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("INSERT INTO admin_challenges (exam_id, title, nb_questions, time_limit_seconds, created_by) VALUES (:exam_id, :title, :nb_questions, :time_limit_seconds, :created_by)");
+    $stmt->execute([
+        ':exam_id' => $examId,
+        ':title' => $title,
+        ':nb_questions' => $nbQuestions,
+        ':time_limit_seconds' => $timeLimitSeconds,
+        ':created_by' => $createdBy
+    ]);
+    return (int)$pdo->lastInsertId();
+}
+
+// Update an admin challenge
+function updateAdminChallenge(int $id, string $title, int $nbQuestions, ?int $timeLimitSeconds = null): bool
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("UPDATE admin_challenges SET title = :title, nb_questions = :nb_questions, time_limit_seconds = :time_limit_seconds WHERE id = :id");
+    return $stmt->execute([
+        ':title' => $title,
+        ':nb_questions' => $nbQuestions,
+        ':time_limit_seconds' => $timeLimitSeconds,
+        ':id' => $id
+    ]);
+}
+
+// Delete an admin challenge
+function deleteAdminChallenge(int $id): bool
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("DELETE FROM admin_challenges WHERE id = :id");
+    return $stmt->execute([':id' => $id]);
+}
+
+// Get leaderboard (top N) for a given admin challenge
+function getLeaderboardForAdminChallenge(int $challengeId, int $limit = 10): array
+{
+    // Delegate to centralized stats service to ensure consistent leaderboard rules
+    require_once __DIR__ . '/stats_service.php';
+    if (function_exists('getAdminChallengeLeaderboard')) {
+        return getAdminChallengeLeaderboard($challengeId, $limit);
+    }
+    // Fallback: return empty
+    return [];
 }
 
 // Calculer les statistiques pour un examen et un utilisateur
