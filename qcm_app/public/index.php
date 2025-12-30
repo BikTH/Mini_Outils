@@ -225,19 +225,34 @@ switch ($action) {
         $limit = 90;
         $timeLimit = 3600;
     } elseif ($mode === 'training_timed') {
-        $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
-        $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
+    $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+    $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
+    // validate duration
+    if ($timeLimit !== null && $timeLimit < 5) $timeLimit = 5;
+    if ($timeLimit !== null && $timeLimit > 86400) $timeLimit = 86400; // arbitrary sensible cap
     } elseif ($mode === 'admin_challenge' && userHasRole('admin')) {
-        // admin_challenge: pick configured challenge if provided (simple fallback here)
-        $limit = $exam['nb_questions'] ?? 10;
-        $timeLimit = null; // could be filled from admin_challenges table in an extended implementation
+    // admin_challenge: if challenge_id provided, load it
+    $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
+    $limit = $exam['nb_questions'] ?? 10;
+    $timeLimit = null;
+    if ($challengeId) {
+      $challenge = getAdminChallengeById($challengeId);
+      if ($challenge) {
+        $limit = (int)$challenge['nb_questions'] > 0 ? (int)$challenge['nb_questions'] : $limit;
+        $timeLimit = $challenge['time_limit_seconds'] !== null ? (int)$challenge['time_limit_seconds'] : $timeLimit;
+      }
+    }
     } else {
         // training
         $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
         $timeLimit = null;
     }
 
-    $questions = getRandomQuestionsForExam($examId, (int)$limit);
+  // cap to available questions if exam defines a limit
+  if (!empty($exam['nb_questions']) && (int)$exam['nb_questions'] > 0) {
+    $limit = min((int)$limit, (int)$exam['nb_questions']);
+  }
+  $questions = getRandomQuestionsForExam($examId, (int)$limit);
     if (empty($questions)) { echo "<p>Aucune question disponible.</p>"; break; }
 
     // When a logged-in user starts an exam, link the attempt to their account automatically

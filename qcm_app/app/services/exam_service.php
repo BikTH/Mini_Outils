@@ -180,6 +180,16 @@ function getAttemptsForUserAndExam(?string $userIdentifier, int $examId): array
     return $stmt->fetchAll();
 }
 
+// Get admin_challenge by id
+function getAdminChallengeById(int $challengeId): ?array
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM admin_challenges WHERE id = :id");
+    $stmt->execute([':id' => $challengeId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
 // Calculer les statistiques pour un examen et un utilisateur
 function computeExamStatistics(array $attempts): array
 {
