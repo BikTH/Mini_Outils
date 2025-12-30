@@ -9,7 +9,7 @@ Checklist des tâches (obligatoire)
 - [x] Étape 3 — Middleware : `middleware/middlewares/auth_middleware.php`, `middleware/middlewares/role_middleware.php` (créés)
 - [x] Étape 4 — Intégration routes existantes : protéger `admin_exams`, `admin_import_pdf`, `user_history`, `user_exam_stats` (modifications dans `public/index.php`)
 - [x] Étape 5 — UX minimale : routes `/login` et `/logout` + formulaires simples (implémentés dans `public/index.php`)
-- [x] Étape 6 — Tests manuels checklist (préparée)
+- [ ] Étape 6 — Tests manuels checklist (préparée)
 
 Exigences supplémentaires (demandées par l'utilisateur)
 
