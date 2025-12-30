@@ -220,33 +220,57 @@ switch ($action) {
         break;
     }
 
-    // determine limits according to mode
-    if ($mode === 'official') {
-        $limit = 90;
-        $timeLimit = 3600;
-    } elseif ($mode === 'training_timed') {
-    $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
-    $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
-    // validate duration
-    if ($timeLimit !== null && $timeLimit < 5) $timeLimit = 5;
-    if ($timeLimit !== null && $timeLimit > 86400) $timeLimit = 86400; // arbitrary sensible cap
-    } elseif ($mode === 'admin_challenge' && userHasRole('admin')) {
-    // admin_challenge: if challenge_id provided, load it
-    $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
-    $limit = $exam['nb_questions'] ?? 10;
-    $timeLimit = null;
-    if ($challengeId) {
-      $challenge = getAdminChallengeById($challengeId);
-      if ($challenge) {
-        $limit = (int)$challenge['nb_questions'] > 0 ? (int)$challenge['nb_questions'] : $limit;
-        $timeLimit = $challenge['time_limit_seconds'] !== null ? (int)$challenge['time_limit_seconds'] : $timeLimit;
+  // determine limits according to mode (server-side authoritative)
+  $allowedModes = ['training', 'training_timed', 'official', 'admin_challenge'];
+  if (!in_array($mode, $allowedModes, true)) {
+    $mode = 'training';
+  }
+
+  // sensible defaults
+  $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+  $timeLimit = null;
+
+  switch ($mode) {
+    case 'official':
+      // official mode is fixed and cannot be overridden by user input
+      $limit = 90;
+      $timeLimit = 3600;
+      break;
+
+    case 'training_timed':
+      // user may request nb_questions and duration but we validate and cap them
+      $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+      $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
+      if ($timeLimit !== null) {
+        $timeLimit = max(5, min(86400, (int)$timeLimit));
       }
-    }
-    } else {
-        // training
+      break;
+
+    case 'admin_challenge':
+      // only admins can use admin_challenge; otherwise fallback to training
+      if (!userHasRole('admin')) {
+        $mode = 'training';
         $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
         $timeLimit = null;
-    }
+        break;
+      }
+      $challengeId = !empty($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : null;
+      $limit = $exam['nb_questions'] ?? 10;
+      $timeLimit = null;
+      if ($challengeId) {
+        $challenge = getAdminChallengeById($challengeId);
+        if ($challenge) {
+          $limit = ((int)$challenge['nb_questions'] > 0) ? (int)$challenge['nb_questions'] : $limit;
+          $timeLimit = $challenge['time_limit_seconds'] !== null ? (int)$challenge['time_limit_seconds'] : $timeLimit;
+        }
+      }
+      break;
+
+    default:
+      // training (no timer)
+      $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+      $timeLimit = null;
+  }
 
   // cap to available questions if exam defines a limit
   if (!empty($exam['nb_questions']) && (int)$exam['nb_questions'] > 0) {
