@@ -18,7 +18,8 @@ Checklist des tâches (obligatoire pour Chantier 3)
 - [x] Étape 1 — Migration DB : création du fichier de migration `db/migrations/003_add_exam_modes.sql` (ajout colonnes attempts, table admin_challenges) — migration créée
 - [x] Étape 2 — Backend : adapter la logique de lancement d'examen selon le mode, valider paramètres côté serveur, implémenter timer serveur, soumission forcée et blocage soumission prématurée — implémenté (validation durcie)
 - [ ] Étape 3 — UX minimale : écran de sélection du mode, champs dynamiques, affichage des règles avant démarrage, affichage temps restant — en cours (UI minimale ajoutée)
-- [ ] Étape 4 — Historique & stats : enregistrer le mode dans chaque tentative, séparer statistiques par mode, implémenter leaderboard top 10 pour `admin_challenge` — à faire
+ - [x] Étape 3 — UX minimale : écran de sélection du mode, champs dynamiques, affichage des règles avant démarrage, affichage temps restant — implémenté (UI améliorée)
+ - [ ] Étape 4 — Historique & stats : enregistrer le mode dans chaque tentative, séparer statistiques par mode, implémenter leaderboard top 10 pour `admin_challenge` — en partie implémenté (leaderboard & CRUD admin_challenge ajoutés)
 - [ ] Étape 5 — Tests manuels : préparer checklist détaillée et exécuter (training, training_timed, official timeout, admin challenge, leaderboard, soumission prématurée, soumission forcée) — à faire
 
 Modes à implémenter (strict)

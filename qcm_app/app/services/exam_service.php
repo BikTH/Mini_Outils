@@ -190,6 +190,67 @@ function getAdminChallengeById(int $challengeId): ?array
     return $row ?: null;
 }
 
+// Get all admin challenges for an exam
+function getAdminChallengesForExam(int $examId): array
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("SELECT * FROM admin_challenges WHERE exam_id = :exam_id ORDER BY created_at DESC");
+    $stmt->execute([':exam_id' => $examId]);
+    return $stmt->fetchAll();
+}
+
+// Create a new admin challenge
+function createAdminChallenge(int $examId, string $title, int $nbQuestions, ?int $timeLimitSeconds = null, ?string $createdBy = null): int
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("INSERT INTO admin_challenges (exam_id, title, nb_questions, time_limit_seconds, created_by) VALUES (:exam_id, :title, :nb_questions, :time_limit_seconds, :created_by)");
+    $stmt->execute([
+        ':exam_id' => $examId,
+        ':title' => $title,
+        ':nb_questions' => $nbQuestions,
+        ':time_limit_seconds' => $timeLimitSeconds,
+        ':created_by' => $createdBy
+    ]);
+    return (int)$pdo->lastInsertId();
+}
+
+// Update an admin challenge
+function updateAdminChallenge(int $id, string $title, int $nbQuestions, ?int $timeLimitSeconds = null): bool
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("UPDATE admin_challenges SET title = :title, nb_questions = :nb_questions, time_limit_seconds = :time_limit_seconds WHERE id = :id");
+    return $stmt->execute([
+        ':title' => $title,
+        ':nb_questions' => $nbQuestions,
+        ':time_limit_seconds' => $timeLimitSeconds,
+        ':id' => $id
+    ]);
+}
+
+// Delete an admin challenge
+function deleteAdminChallenge(int $id): bool
+{
+    $pdo = getPDO();
+    $stmt = $pdo->prepare("DELETE FROM admin_challenges WHERE id = :id");
+    return $stmt->execute([':id' => $id]);
+}
+
+// Get leaderboard (top N) for a given admin challenge
+function getLeaderboardForAdminChallenge(int $challengeId, int $limit = 10): array
+{
+    $challenge = getAdminChallengeById($challengeId);
+    if (!$challenge) return [];
+    $pdo = getPDO();
+    // Heuristic: select attempts for same exam, mode = 'admin_challenge' and matching total_points to challenge.nb_questions
+    $sql = "SELECT * FROM attempts WHERE exam_id = :exam_id AND mode = 'admin_challenge' AND total_points = :nb_questions ORDER BY score_auto DESC, date_end ASC LIMIT :limit";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':exam_id', (int)$challenge['exam_id'], PDO::PARAM_INT);
+    $stmt->bindValue(':nb_questions', (int)$challenge['nb_questions'], PDO::PARAM_INT);
+    $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll();
+}
+
 // Calculer les statistiques pour un examen et un utilisateur
 function computeExamStatistics(array $attempts): array
 {

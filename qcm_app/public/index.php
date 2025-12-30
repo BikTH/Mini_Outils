@@ -188,6 +188,89 @@ switch ($action) {
     <?php
     break;
 
+  case 'admin_challenges':
+    // Admin interface to create/manage admin_challenge entries
+    require_role('admin');
+    $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
+    $exams = getAllExams();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+      if (!empty($_POST['action']) && $_POST['action'] === 'create') {
+        $title = trim($_POST['title'] ?? '');
+        $nbq = !empty($_POST['nb_questions']) ? (int)$_POST['nb_questions'] : 0;
+        $time = isset($_POST['time_limit_seconds']) && $_POST['time_limit_seconds'] !== '' ? (int)$_POST['time_limit_seconds'] : null;
+        $createdBy = currentUser()['username'] ?? null;
+        if ($examId && $title && $nbq > 0) {
+          $cid = createAdminChallenge($examId, $title, $nbq, $time, $createdBy);
+          echo "<p>Challenge créé (ID: " . (int)$cid . ")</p>";
+        } else {
+          echo "<p style='color:red;'>Les champs sont incomplets.</p>";
+        }
+      } elseif (!empty($_POST['action']) && $_POST['action'] === 'delete' && !empty($_POST['challenge_id'])) {
+        $cid = (int)$_POST['challenge_id'];
+        deleteAdminChallenge($cid);
+        echo "<p>Challenge supprimé.</p>";
+      }
+    }
+
+    ?>
+    <h2>Gestion des Admin Challenges</h2>
+    <form method="get" action="<?php echo BASE_URL; ?>/">
+      <input type="hidden" name="action" value="admin_challenges">
+      <label>Examen: <select name="exam_id" onchange="this.form.submit()">
+        <option value="">-- Choisir --</option>
+        <?php foreach ($exams as $ex): ?>
+          <option value="<?php echo (int)$ex['id']; ?>" <?php echo ($examId == $ex['id']) ? 'selected' : ''; ?>><?php echo h($ex['titre']); ?></option>
+        <?php endforeach; ?>
+      </select></label>
+    </form>
+    <?php if ($examId):
+      $chals = getAdminChallengesForExam($examId);
+    ?>
+      <h3>Créer un challenge pour l'examen</h3>
+      <form method="post" action="<?php echo BASE_URL; ?>/?action=admin_challenges&exam_id=<?php echo $examId; ?>">
+        <input type="hidden" name="action" value="create">
+        <label>Titre: <input name="title" required></label><br>
+        <label>Nombre de questions: <input type="number" name="nb_questions" min="1" required></label><br>
+        <label>Durée en secondes (optionnel): <input type="number" name="time_limit_seconds" min="5"></label><br>
+        <button type="submit">Créer</button>
+      </form>
+
+      <h3>Challenges existants</h3>
+      <ul>
+      <?php foreach ($chals as $c): ?>
+        <li><?php echo h($c['title']); ?> — <?php echo (int)$c['nb_questions']; ?> q — <?php echo $c['time_limit_seconds'] ? ((int)$c['time_limit_seconds'] . 's') : 'no time'; ?>
+          <form method="post" style="display:inline;" onsubmit="return confirm('Supprimer ?');">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="challenge_id" value="<?php echo (int)$c['id']; ?>">
+            <button type="submit">Supprimer</button>
+          </form>
+          &nbsp; <a href="<?php echo BASE_URL; ?>/?action=admin_challenge_leaderboard&challenge_id=<?php echo (int)$c['id']; ?>">Voir leaderboard</a>
+        </li>
+      <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+    <?php
+    break;
+
+  case 'admin_challenge_leaderboard':
+    $challengeId = isset($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : 0;
+    if (!$challengeId) { echo "<p>Challenge introuvable.</p>"; break; }
+    $challenge = getAdminChallengeById($challengeId);
+    if (!$challenge) { echo "<p>Challenge introuvable.</p>"; break; }
+    $leaders = getLeaderboardForAdminChallenge($challengeId, 10);
+    echo "<h2>Leaderboard: " . h($challenge['title']) . "</h2>";
+    if (empty($leaders)) {
+      echo "<p>Aucune tentative pour ce challenge.</p>";
+    } else {
+      echo "<ol>";
+      foreach ($leaders as $l) {
+        $pct = ($l['total_points'] > 0) ? round((($l['score_auto'] / $l['total_points']) * 100), 2) : 0;
+        echo "<li>" . h($l['user_identifier'] ?? 'anon') . " — " . round($l['score_auto'],2) . " / " . round($l['total_points'],2) . " (" . $pct . "%) — " . h($l['date_end']) . "</li>";
+      }
+      echo "</ol>";
+    }
+    break;
+
   case 'take_exam':
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
@@ -372,26 +455,73 @@ switch ($action) {
                 }
             });
             
-            if (!answered) {
+            if (!$mode) {
                 hasError = true;
+                $challenges = [];
+                if (userHasRole('admin')) {
+                    $challenges = getAdminChallengesForExam($exam['id']);
+                }
                 unansweredQuestions.push(questionId);
                 var errorSpan = fieldset.querySelector('.error-message');
                 if (errorSpan) {
                     errorSpan.style.display = 'inline';
                     fieldset.style.border = '2px solid red';
-                }
-            } else {
-                fieldset.style.border = '';
-            }
-        });
-        
-        if (hasError) {
-            var errorMsg = 'Veuillez répondre à toutes les questions avant de valider.';
-            if (unansweredQuestions.length > 0) {
-                errorMsg += ' Questions non répondues : ' + unansweredQuestions.length;
-            }
-            document.getElementById('formError').textContent = errorMsg;
-            document.getElementById('formError').style.display = 'block';
+                  <label>Mode:
+                    <select name="mode" id="modeSelect">
+                      <option value="training">Training (choix du nombre de questions)</option>
+                      <option value="training_timed">Training (timed) - choisis durée</option>
+                      <option value="official">Official (90 q, 60 min)</option>
+                      <?php if (userHasRole('admin')): ?>
+                        <option value="admin_challenge">Admin challenge (configuré par admin)</option>
+                      <?php endif; ?>
+                    </select>
+                  </label><br>
+                  <div id="modeRules" style="margin:10px 0;padding:10px;border:1px solid #ddd;background:#f7f7f7;"></div>
+                  <div id="challengeSelector" style="display:none;margin:10px 0;">
+                    <label>Challenge admin: 
+                      <select name="challenge_id">
+                        <option value="">-- choisir --</option>
+                        <?php foreach ($challenges as $c): ?>
+                          <option value="<?php echo (int)$c['id']; ?>"><?php echo h($c['title']); ?> (<?php echo (int)$c['nb_questions']; ?> q<?php echo $c['time_limit_seconds'] ? ', ' . (int)$c['time_limit_seconds'] . 's' : ''; ?>)</option>
+                        <?php endforeach; ?>
+                      </select>
+                    </label>
+                  </div>
+                  <label id="nbQuestionsLabel">Nombre de questions (training / training_timed) : <input type="number" name="nb_questions" min="1"></label><br>
+                  <label id="durationLabel" style="display:none;">Durée en secondes (training_timed) : <input type="number" name="duration" min="10"></label><br>
+                  <button type="submit">Démarrer</button>
+                </form>
+                <script>
+                (function(){
+                  var modeSelect = document.getElementById('modeSelect');
+                  var durationLabel = document.getElementById('durationLabel');
+                  var nbLabel = document.getElementById('nbQuestionsLabel');
+                  var rules = document.getElementById('modeRules');
+                  var challengeSel = document.getElementById('challengeSelector');
+
+                  function updateUI() {
+                    var v = modeSelect.value;
+                    challengeSel.style.display = 'none';
+                    durationLabel.style.display = 'none';
+                    nbLabel.style.display = 'inline';
+                    if (v === 'official') {
+                      rules.innerHTML = '<strong>Official:</strong> 90 questions, 3600s (1 heure). Les paramètres sont fixés côté serveur.';
+                      nbLabel.style.display = 'none';
+                    } else if (v === 'training_timed') {
+                      rules.innerHTML = '<strong>Training (timed):</strong> Choisissez le nombre de questions et la durée (min 5s, max 86400s).';
+                      durationLabel.style.display = 'inline';
+                    } else if (v === 'admin_challenge') {
+                      rules.innerHTML = '<strong>Admin challenge:</strong> lancé selon une configuration définie par un administrateur. Choisissez un challenge.';
+                      challengeSel.style.display = 'block';
+                      nbLabel.style.display = 'none';
+                    } else {
+                      rules.innerHTML = '<strong>Training:</strong> choisissez le nombre de questions. Pas de timer.';
+                    }
+                  }
+                  modeSelect.addEventListener('change', updateUI);
+                  updateUI();
+                })();
+                </script>
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return false;
         }
