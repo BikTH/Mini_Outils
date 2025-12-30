@@ -6,6 +6,11 @@
 
 ## 2025-12-30 - `qcm_app` v0.4.0
 - Ajout : Authentification utilisateur (login/logout), gestion multi-utilisateurs et service d'administration des utilisateurs
+## 2025-12-30 - `qcm_app` v0.5.0
+- Stabilisation du leaderboard `admin_challenge`, consolidation de la logique de classement et corrections UI.
+
+## 2025-12-30 - `qcm_app` v0.4.0
+- Ajout : Authentification utilisateur (login/logout), gestion multi-utilisateurs et service d'administration des utilisateurs
 - Ajout : Page d'administration `admin_users` pour création/gestion des comptes
 - Modifié : Accès protégé par défaut — application accessible seulement après authentification (sauf `/login`/`/logout`)
  - Ajout : Modes d'examen avancés (`training`, `training_timed`, `official`, `admin_challenge`), timer serveur-autoritaire et soumission forcée automatique

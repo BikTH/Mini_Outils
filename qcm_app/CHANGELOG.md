@@ -6,6 +6,19 @@
 - Correction du parsing PDF : fix de la regex `preg_split` qui provoquait des warnings "Unknown modifier ','" lors de l'import (fichier `app/pdf/pdf_parser.php`).
 - Divers ajustements de structure (déplacement vers `app/core`, `app/services`, `app/pdf`) sans modification de la logique métier.
 
+## [0.5.0] - 2025-12-30
+
+### Ajouté
+- Stabilisation du leaderboard pour `admin_challenge` (source de vérité centralisée, unicité par utilisateur, règles de classement strictes).
+
+### Modifié
+- Consolidation de la logique de scoring/leaderboard dans `app/services/stats_service.php`.
+- Amélioration de l'affichage du leaderboard (rang, temps passé HH:MM:SS, indication des soumissions forcées) dans l'UI admin.
+- Nettoyage et mise à jour de la documentation de projet (`Global_Context_&_Goal.md`, `task.md`).
+
+### Technique
+- Ajout de tests manuels et checklist pour le Chantier 3 (modes & timer).
+
 ## [0.4.0] - 2025-12-30
 
 ### Ajouté

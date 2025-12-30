@@ -239,17 +239,13 @@ function deleteAdminChallenge(int $id): bool
 // Get leaderboard (top N) for a given admin challenge
 function getLeaderboardForAdminChallenge(int $challengeId, int $limit = 10): array
 {
-    $challenge = getAdminChallengeById($challengeId);
-    if (!$challenge) return [];
-    $pdo = getPDO();
-    // Heuristic: select attempts for same exam, mode = 'admin_challenge' and matching total_points to challenge.nb_questions
-    $sql = "SELECT * FROM attempts WHERE exam_id = :exam_id AND mode = 'admin_challenge' AND total_points = :nb_questions ORDER BY score_auto DESC, date_end ASC LIMIT :limit";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindValue(':exam_id', (int)$challenge['exam_id'], PDO::PARAM_INT);
-    $stmt->bindValue(':nb_questions', (int)$challenge['nb_questions'], PDO::PARAM_INT);
-    $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-    $stmt->execute();
-    return $stmt->fetchAll();
+    // Delegate to centralized stats service to ensure consistent leaderboard rules
+    require_once __DIR__ . '/stats_service.php';
+    if (function_exists('getAdminChallengeLeaderboard')) {
+        return getAdminChallengeLeaderboard($challengeId, $limit);
+    }
+    // Fallback: return empty
+    return [];
 }
 
 // Calculer les statistiques pour un examen et un utilisateur
