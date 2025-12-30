@@ -189,6 +189,88 @@ switch ($action) {
     <?php
     break;
 
+  case 'admin_challenges':
+    require_role('admin');
+    $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
+    $exams = getAllExams();
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+      if (!empty($_POST['action']) && $_POST['action'] === 'create') {
+        $title = trim($_POST['title'] ?? '');
+        $nbq = !empty($_POST['nb_questions']) ? (int)$_POST['nb_questions'] : 0;
+        $time = isset($_POST['time_limit_seconds']) && $_POST['time_limit_seconds'] !== '' ? (int)$_POST['time_limit_seconds'] : null;
+        $createdBy = currentUser()['username'] ?? null;
+        if ($examId && $title && $nbq > 0) {
+          $cid = createAdminChallenge($examId, $title, $nbq, $time, $createdBy);
+          echo "<p>Challenge créé (ID: " . (int)$cid . ")</p>";
+        } else {
+          echo "<p style='color:red;'>Les champs sont incomplets.</p>";
+        }
+      } elseif (!empty($_POST['action']) && $_POST['action'] === 'delete' && !empty($_POST['challenge_id'])) {
+        $cid = (int)$_POST['challenge_id'];
+        deleteAdminChallenge($cid);
+        echo "<p>Challenge supprimé.</p>";
+      }
+    }
+
+    ?>
+    <h2>Gestion des Admin Challenges</h2>
+    <form method="get" action="<?php echo BASE_URL; ?>/">
+      <input type="hidden" name="action" value="admin_challenges">
+      <label>Examen: <select name="exam_id" onchange="this.form.submit()">
+        <option value="">-- Choisir --</option>
+        <?php foreach ($exams as $ex): ?>
+          <option value="<?php echo (int)$ex['id']; ?>" <?php echo ($examId == $ex['id']) ? 'selected' : ''; ?>><?php echo h($ex['titre']); ?></option>
+        <?php endforeach; ?>
+      </select></label>
+    </form>
+    <?php if ($examId):
+      $chals = getAdminChallengesForExam($examId);
+    ?>
+      <h3>Créer un challenge pour l'examen</h3>
+      <form method="post" action="<?php echo BASE_URL; ?>/?action=admin_challenges&exam_id=<?php echo $examId; ?>">
+        <input type="hidden" name="action" value="create">
+        <label>Titre: <input name="title" required></label><br>
+        <label>Nombre de questions: <input type="number" name="nb_questions" min="1" required></label><br>
+        <label>Durée en secondes (optionnel): <input type="number" name="time_limit_seconds" min="5"></label><br>
+        <button type="submit">Créer</button>
+      </form>
+
+      <h3>Challenges existants</h3>
+      <ul>
+      <?php foreach ($chals as $c): ?>
+        <li><?php echo h($c['title']); ?> — <?php echo (int)$c['nb_questions']; ?> q — <?php echo $c['time_limit_seconds'] ? ((int)$c['time_limit_seconds'] . 's') : 'no time'; ?>
+          <form method="post" style="display:inline;" onsubmit="return confirm('Supprimer ?');">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="challenge_id" value="<?php echo (int)$c['id']; ?>">
+            <button type="submit">Supprimer</button>
+          </form>
+          &nbsp; <a href="<?php echo BASE_URL; ?>/?action=admin_challenge_leaderboard&challenge_id=<?php echo (int)$c['id']; ?>">Voir leaderboard</a>
+        </li>
+      <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+    <?php
+    break;
+
+  case 'admin_challenge_leaderboard':
+    $challengeId = isset($_GET['challenge_id']) ? (int)$_GET['challenge_id'] : 0;
+    if (!$challengeId) { echo "<p>Challenge introuvable.</p>"; break; }
+    $challenge = getAdminChallengeById($challengeId);
+    if (!$challenge) { echo "<p>Challenge introuvable.</p>"; break; }
+    $leaders = getLeaderboardForAdminChallenge($challengeId, 10);
+    echo "<h2>Leaderboard: " . h($challenge['title']) . "</h2>";
+    if (empty($leaders)) {
+      echo "<p>Aucune tentative pour ce challenge.</p>";
+    } else {
+      echo "<ol>";
+      foreach ($leaders as $l) {
+        $pct = ($l['total_points'] > 0) ? round((($l['score_auto'] / $l['total_points']) * 100), 2) : 0;
+        echo "<li>" . h($l['user_identifier'] ?? 'anon') . " — " . round($l['score_auto'],2) . " / " . round($l['total_points'],2) . " (" . $pct . "%) — " . h($l['date_end']) . "</li>";
+      }
+      echo "</ol>";
+    }
+    break;
+
   case 'take_exam':
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
