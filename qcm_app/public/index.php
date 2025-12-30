@@ -192,19 +192,71 @@ switch ($action) {
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
     if (!$exam) { echo "<p>Examen introuvable.</p>"; break; }
-    $limit = $exam['nb_questions'] ?? 10;
+
+    // Mode selection / parameters
+    $mode = $_GET['mode'] ?? $_POST['mode'] ?? null;
+    if (!$mode) {
+        // show selection form
+        ?>
+        <h2>Choisir le mode pour: <?php echo h($exam['titre']); ?></h2>
+        <form method="get" action="<?php echo BASE_URL; ?>/">
+          <input type="hidden" name="action" value="take_exam">
+          <input type="hidden" name="exam_id" value="<?php echo $exam['id']; ?>">
+          <label>Mode:
+            <select name="mode">
+              <option value="training">Training (choix du nombre de questions)</option>
+              <option value="training_timed">Training (timed) - choisis durée</option>
+              <option value="official">Official (90 q, 60 min)</option>
+              <?php if (userHasRole('admin')): ?>
+                <option value="admin_challenge">Admin challenge (configuré par admin)</option>
+              <?php endif; ?>
+            </select>
+          </label><br>
+          <label>Nombre de questions (training / training_timed) : <input type="number" name="nb_questions" min="1"></label><br>
+          <label>Durée en secondes (training_timed) : <input type="number" name="duration" min="10"></label><br>
+          <button type="submit">Démarrer</button>
+        </form>
+        <?php
+        break;
+    }
+
+    // determine limits according to mode
+    if ($mode === 'official') {
+        $limit = 90;
+        $timeLimit = 3600;
+    } elseif ($mode === 'training_timed') {
+        $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+        $timeLimit = !empty($_GET['duration']) ? (int)$_GET['duration'] : null;
+    } elseif ($mode === 'admin_challenge' && userHasRole('admin')) {
+        // admin_challenge: pick configured challenge if provided (simple fallback here)
+        $limit = $exam['nb_questions'] ?? 10;
+        $timeLimit = null; // could be filled from admin_challenges table in an extended implementation
+    } else {
+        // training
+        $limit = !empty($_GET['nb_questions']) ? (int)$_GET['nb_questions'] : ($exam['nb_questions'] ?? 10);
+        $timeLimit = null;
+    }
+
     $questions = getRandomQuestionsForExam($examId, (int)$limit);
     if (empty($questions)) { echo "<p>Aucune question disponible.</p>"; break; }
+
     // When a logged-in user starts an exam, link the attempt to their account automatically
     if (isAuthenticated()) {
       $_SESSION['user_identifier'] = currentUser()['username'];
     }
 
+    // store session data for timer and mode
     $_SESSION['current_exam_id'] = $examId;
     $_SESSION['current_question_ids'] = array_column($questions, 'id');
     $_SESSION['exam_start_time'] = date('Y-m-d H:i:s');
+    $_SESSION['exam_mode'] = $mode;
+    $_SESSION['exam_time_limit'] = $timeLimit; // seconds or null
+
     ?>
-    <h2>Passer: <?php echo h($exam['titre']); ?></h2>
+    <h2>Passer: <?php echo h($exam['titre']); ?> (mode: <?php echo h($mode); ?>)</h2>
+    <?php if ($timeLimit !== null): ?>
+      <p><strong>Temps limite:</strong> <span id="timeLeftDisplay"><?php echo intval($timeLimit); ?></span> secondes</p>
+    <?php endif; ?>
     <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
     <?php if (isAuthenticated()): ?>
       <p>Vous êtes connecté en tant que <strong><?php echo h(currentUser()['username']); ?></strong>. Votre tentative sera liée à ce compte.</p>
@@ -215,6 +267,13 @@ switch ($action) {
       </label>
       <p style="font-size:0.9em;color:#666;">(optionnel — permet d'enregistrer votre historique)</p>
     <?php endif; ?>
+    <hr>
+    <?php foreach ($questions as $i => $q): 
+      $opts = getOptionsForQuestion($q['id']);
+      $isMultiple = $q['type'] === 'qcm_multiple';
+      $name = 'q_' . $q['id'] . ($isMultiple ? '[]' : '');
+      $fieldsetId = 'question_' . $q['id'];
+    ?>
     <hr>
     <?php foreach ($questions as $i => $q): 
       $opts = getOptionsForQuestion($q['id']);
@@ -236,6 +295,24 @@ switch ($action) {
       <div id="formError" style="color:red;display:none;margin:10px 0;font-weight:bold;"></div>
       <button type="submit">Valider</button>
     </form>
+    <?php if ($timeLimit !== null): ?>
+    <script>
+    // simple countdown that submits form when time is up (client-side assist)
+    (function(){
+      var timeLeft = <?php echo intval($timeLimit); ?>;
+      var display = document.getElementById('timeLeftDisplay');
+      var interval = setInterval(function(){
+        timeLeft--; if (display) display.textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          // auto-submit the form
+          var form = document.getElementById('examForm');
+          if (form) { form.submit(); }
+        }
+      }, 1000);
+    })();
+    </script>
+    <?php endif; ?>
     <script>
     function validateExamForm() {
         var form = document.getElementById('examForm');
@@ -371,13 +448,24 @@ switch ($action) {
         ];
     }
 
-    $attemptId = saveAttempt($examId, $userIdentifier, $dateStart, $dateEnd, $scoreSum, $totalPoints, $answersForSave);
+  // Timer & mode metadata
+  $mode = $_SESSION['exam_mode'] ?? 'training';
+  $timeLimit = $_SESSION['exam_time_limit'] ?? null;
+  $started = strtotime($dateStart);
+  $ended = strtotime($dateEnd);
+  $timeSpent = max(0, $ended - $started);
+  $isForced = false;
+  if ($timeLimit !== null && $timeSpent >= (int)$timeLimit) {
+    $isForced = true;
+  }
 
-    $_SESSION['last_attempt_id'] = $attemptId;
+  $attemptId = saveAttempt($examId, $userIdentifier, $dateStart, $dateEnd, $scoreSum, $totalPoints, $answersForSave, $mode, $timeLimit !== null ? (int)$timeLimit : null, (int)$timeSpent, $isForced);
 
-    echo "<h2>Résultat</h2>";
-    echo "<p>Score : " . round($scoreSum, 2) . " / " . round($totalPoints, 2) . "</p>";
-    echo '<p><a href="' . BASE_URL . '/?action=show_correction&attempt_id=' . $attemptId . '">Voir la correction détaillée</a></p>';
+  $_SESSION['last_attempt_id'] = $attemptId;
+
+  echo "<h2>Résultat</h2>";
+  echo "<p>Score : " . round($scoreSum, 2) . " / " . round($totalPoints, 2) . "</p>";
+  echo '<p><a href="' . BASE_URL . '/?action=show_correction&attempt_id=' . $attemptId . '">Voir la correction détaillée</a></p>';
     break;
 
   case 'show_correction':
