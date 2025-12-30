@@ -3,10 +3,20 @@
 session_start();
 require_once __DIR__ . '/../app/config.php';
 require_once __DIR__ . '/../app/core/helpers.php';
+require_once __DIR__ . '/../app/core/auth.php';
 require_once __DIR__ . '/../app/exam_service.php';
 require_once __DIR__ . '/../app/pdf_parser.php';
+// middleware (simple functions)
+require_once __DIR__ . '/../middleware/middlewares/auth_middleware.php';
+require_once __DIR__ . '/../middleware/middlewares/role_middleware.php';
 
 $action = $_GET['action'] ?? 'home';
+
+// Enforce authentication for all actions except login/logout
+$publicActions = ['login', 'logout'];
+if (!in_array($action, $publicActions, true)) {
+  require_auth();
+}
 
 ?>
 <!doctype html>
@@ -18,14 +28,48 @@ $action = $_GET['action'] ?? 'home';
 <body>
   <h1>QCM App (V1)</h1>
   <nav>
-    <a href="<?php echo BASE_URL; ?>/?action=home">Accueil</a> |
-    <a href="<?php echo BASE_URL; ?>/?action=admin_exams">Menu d'édition des examens</a> |
-    <a href="<?php echo BASE_URL; ?>/?action=user_history">Mon historique</a>
+    <?php if (isAuthenticated()): ?>
+      <span>Bienvenue <?php echo h(currentUser()['display_name'] ?? currentUser()['username']); ?> — </span>
+      <a href="<?php echo BASE_URL; ?>/?action=home">Accueil</a> |
+      <a href="<?php echo BASE_URL; ?>/?action=user_history">Mon historique</a>
+      <?php if (userHasRole('admin')): ?> |
+        <a href="<?php echo BASE_URL; ?>/?action=admin_exams">Menu d'édition des examens</a> |
+        <a href="<?php echo BASE_URL; ?>/?action=admin_users">Gestion des utilisateurs</a>
+      <?php endif; ?>
+      | <a href="<?php echo BASE_URL; ?>/?action=logout">Se déconnecter</a>
+    <?php else: ?>
+      <a href="<?php echo BASE_URL; ?>/?action=login">Se connecter</a>
+    <?php endif; ?>
   </nav>
   <hr>
 
 <?php
 switch ($action) {
+  case 'login':
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+      $u = trim($_POST['username'] ?? '');
+      $p = $_POST['password'] ?? '';
+      if ($u !== '' && login($u, $p)) {
+        header('Location: ' . BASE_URL . '/'); exit;
+      } else {
+        echo "<p style='color:red;'>Identifiants invalides.</p>";
+      }
+    }
+    ?>
+    <h2>Connexion</h2>
+    <form method="post" action="<?php echo BASE_URL; ?>/?action=login">
+      <label>Utilisateur: <input name="username" required></label><br>
+      <label>Mot de passe: <input type="password" name="password" required></label><br>
+      <button type="submit">Se connecter</button>
+    </form>
+    <?php
+    break;
+
+  case 'logout':
+    logout();
+    header('Location: ' . BASE_URL . '/'); exit;
+    break;
+
   case 'home':
     $exams = getAllExams();
     echo "<h2>Examens</h2>";
@@ -40,6 +84,8 @@ switch ($action) {
     break;
 
   case 'admin_exams':
+    // protect admin routes
+    require_role('admin');
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $titre = trim($_POST['titre'] ?? '');
       $desc = trim($_POST['description'] ?? '');
@@ -72,6 +118,8 @@ switch ($action) {
     break;
 
   case 'admin_import_pdf':
+    // protect admin import
+    require_role('admin');
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
     if (!$exam) { echo "<p>Examen introuvable.</p>"; break; }
@@ -97,6 +145,49 @@ switch ($action) {
     <?php
     break;
 
+  case 'admin_users':
+    // Admin-only: create users and assign roles
+    require_role('admin');
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+      $username = trim($_POST['username'] ?? '');
+      $password = $_POST['password'] ?? '';
+      $display = trim($_POST['display_name'] ?? '');
+      $role = trim($_POST['role'] ?? 'user');
+      if ($username === '' || $password === '') {
+        echo "<p style='color:red;'>Le nom d'utilisateur et le mot de passe sont requis.</p>";
+      } else {
+        $uid = createUser($username, $password, $display ?: null);
+        if ($role) assignRole($uid, $role);
+        echo "<p>Utilisateur créé (ID: " . (int)$uid . ").</p>";
+      }
+    }
+
+    $users = listUsers();
+    ?>
+    <h2>Gestion des utilisateurs</h2>
+    <h3>Créer un utilisateur</h3>
+    <form method="post" action="<?php echo BASE_URL; ?>/?action=admin_users">
+      <label>Nom d'utilisateur: <input name="username" required></label><br>
+      <label>Mot de passe: <input type="password" name="password" required></label><br>
+      <label>Nom affiché: <input name="display_name"></label><br>
+      <label>Rôle: 
+        <select name="role">
+          <option value="user">Utilisateur</option>
+          <option value="admin">Administrateur</option>
+        </select>
+      </label><br>
+      <button type="submit">Créer</button>
+    </form>
+
+    <h3>Utilisateurs existants</h3>
+    <ul>
+    <?php foreach ($users as $u): ?>
+      <li><?php echo h($u['username']); ?> (<?php echo h($u['display_name'] ?? '-'); ?>) - créé le <?php echo h($u['created_at']); ?></li>
+    <?php endforeach; ?>
+    </ul>
+    <?php
+    break;
+
   case 'take_exam':
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     $exam = $examId ? getExamById($examId) : null;
@@ -104,6 +195,10 @@ switch ($action) {
     $limit = $exam['nb_questions'] ?? 10;
     $questions = getRandomQuestionsForExam($examId, (int)$limit);
     if (empty($questions)) { echo "<p>Aucune question disponible.</p>"; break; }
+    // When a logged-in user starts an exam, link the attempt to their account automatically
+    if (isAuthenticated()) {
+      $_SESSION['user_identifier'] = currentUser()['username'];
+    }
 
     $_SESSION['current_exam_id'] = $examId;
     $_SESSION['current_question_ids'] = array_column($questions, 'id');
@@ -111,10 +206,15 @@ switch ($action) {
     ?>
     <h2>Passer: <?php echo h($exam['titre']); ?></h2>
     <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
-    <label>Votre identifiant (email ou pseudo) :
-        <input type="text" name="user_identifier" value="<?php echo isset($_SESSION['user_identifier']) ? h($_SESSION['user_identifier']) : ''; ?>">
-    </label>
-    <p style="font-size:0.9em;color:#666;">(optionnel — permet d'enregistrer votre historique)</p>
+    <?php if (isAuthenticated()): ?>
+      <p>Vous êtes connecté en tant que <strong><?php echo h(currentUser()['username']); ?></strong>. Votre tentative sera liée à ce compte.</p>
+      <input type="hidden" name="user_identifier" value="<?php echo h(currentUser()['username']); ?>">
+    <?php else: ?>
+      <label>Votre identifiant (email ou pseudo) :
+          <input type="text" name="user_identifier" value="<?php echo isset($_SESSION['user_identifier']) ? h($_SESSION['user_identifier']) : ''; ?>">
+      </label>
+      <p style="font-size:0.9em;color:#666;">(optionnel — permet d'enregistrer votre historique)</p>
+    <?php endif; ?>
     <hr>
     <?php foreach ($questions as $i => $q): 
       $opts = getOptionsForQuestion($q['id']);
@@ -367,20 +467,34 @@ switch ($action) {
     break;
 
   case 'user_history':
+    // require login to view history
+    require_auth();
+  // If the current user is not admin, force the UI to the current user's username
+  $ui = null;
+  if (userHasRole('admin')) {
     $ui = $_SESSION['user_identifier'] ?? null;
     if (!empty($_GET['user_identifier'])) $ui = trim($_GET['user_identifier']);
-    echo "<h2>Historique personnel</h2>";
-    ?>
-    <form method="get" action="<?php echo BASE_URL; ?>/">
-        <input type="hidden" name="action" value="user_history">
-        <label>Identifiant : <input type="text" name="user_identifier" value="<?php echo h($ui ?? ''); ?>"></label>
-        <button type="submit">Voir</button>
-    </form>
-    <?php
-    if (empty($ui)) { 
-        echo "<p>Indiquez votre identifiant pour voir votre historique.</p>"; 
-        break; 
-    }
+  } else {
+    $cu = currentUser();
+    $ui = $cu['username'];
+  }
+
+  echo "<h2>Historique personnel</h2>";
+  ?>
+  <form method="get" action="<?php echo BASE_URL; ?>/">
+    <input type="hidden" name="action" value="user_history">
+    <?php if (userHasRole('admin')): ?>
+      <label>Identifiant : <input type="text" name="user_identifier" value="<?php echo h($ui ?? ''); ?>"></label>
+      <button type="submit">Voir</button>
+    <?php else: ?>
+      <p>Affichage de l'historique pour : <strong><?php echo h($ui); ?></strong></p>
+    <?php endif; ?>
+  </form>
+  <?php
+  if (empty($ui)) {
+    echo "<p>Aucun identifiant sélectionné.</p>";
+    break;
+  }
     
     $attempts = getAttemptsForUser($ui);
     if (empty($attempts)) { 
@@ -420,7 +534,14 @@ switch ($action) {
     break;
 
   case 'user_exam_stats':
+  require_auth();
+  // Non-admins may only view their own stats
+  if (userHasRole('admin')) {
     $ui = isset($_GET['user_identifier']) ? trim($_GET['user_identifier']) : ($_SESSION['user_identifier'] ?? null);
+  } else {
+    $cu = currentUser();
+    $ui = $cu['username'];
+  }
     $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
     
     if (empty($ui) || $examId === 0) {
