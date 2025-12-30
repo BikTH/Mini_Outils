@@ -275,9 +275,15 @@ switch ($action) {
       echo "<p>Aucune tentative pour ce challenge.</p>";
     } else {
       echo "<ol>";
+      $rank = 1;
       foreach ($leaders as $l) {
         $pct = ($l['total_points'] > 0) ? round((($l['score_auto'] / $l['total_points']) * 100), 2) : 0;
-        echo "<li>" . h($l['user_identifier'] ?? 'anon') . " — " . round($l['score_auto'],2) . " / " . round($l['total_points'],2) . " (" . $pct . "%) — " . h($l['date_end']) . "</li>";
+        $timeSpent = isset($l['time_spent_seconds']) ? (int)$l['time_spent_seconds'] : 0;
+        $timeDisplay = gmdate('H:i:s', $timeSpent);
+        $forcedLabel = !empty($l['is_forced_submit']) ? ' (forced)' : '';
+        $userLabel = h($l['user_identifier'] ?? 'anon');
+        echo "<li>" . $rank . ". " . $userLabel . " — " . round($l['score_auto'],2) . " / " . round($l['total_points'],2) . " (" . $pct . "%) — temps: " . h($timeDisplay) . $forcedLabel . " — " . h($l['date_end']) . "</li>";
+        $rank++;
       }
       echo "</ol>";
     }

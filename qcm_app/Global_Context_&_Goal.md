@@ -165,13 +165,16 @@ Les tests doivent être **simples, reproductibles, sans outillage lourd**.
 
 ### Modes d’examen
 
-| Mode          | Questions | Timer | Score | Historique |
-|---------------|-----------|-------|-------|------------|
-| Entraînement  | < 80      | Non   | Oui   | Oui        |
-| Officiel      | 90        | 60 min| Oui   | Oui        |
-| Hardcore      | ≥110      | Oui   | Oui   | Oui        |
+| Mode                   | Paramètres utilisateur | Timer | Score | Historique | Leaderboard |
+|------------------------|------------------------|-------|-------|------------|-------------|
+| Entraînement           | nb questions           | Non   | Oui   | Oui        | Non         |
+| Entraînement chronométré | nb questions, durée | Oui   | Oui   | Oui        | Non         |
+| Officiel               | Aucun                  | 60 min| Oui   | Oui        | Non         |
+| Défis des admins       | Aucun                  | Oui   | Oui   | Oui        | Oui (Top 10) |
 
 Les statistiques doivent être **séparées par mode** pour chaque utilisateur.
+Les règles spécifiques (soumission bloquée, timeout forcé, non-modifiabilité)
+doivent être clairement affichées à l’utilisateur AVANT le démarrage de l’examen.
 
 ---
 
@@ -256,6 +259,66 @@ Aucune modification directe de table sans migration documentée.
 > Ajouter seulement ce qui est justifié.  
 > Toujours pouvoir expliquer chaque ligne de code.”
 
+
+## 15. Suivi des chantiers — task.md (OBLIGATOIRE)
+
+Chaque chantier structurant du projet (ex. : utilisateurs, modes d’examen, frontend)
+DOIT être accompagné d’un fichier `task.md`.
+
+### Règles obligatoires
+
+- Le fichier `task.md` est créé à la racine de `qcm_app/`
+- Chaque chantier dispose de :
+  - une section dédiée
+  - une checklist explicite `[ ] / [x]`
+- Toute tâche commencée DOIT être listée
+- Toute tâche terminée DOIT être cochée
+- Une tâche cochée **ne doit jamais être supprimée**
+- Les décisions importantes doivent être consignées dans une section :
+  `Notes / décisions`
+
+### Objectif
+
+- éviter le travail implicite
+- rendre l’avancement lisible
+- permettre la revue critique avant commit ou release
+
+Toute contribution (humaine ou assistée par IA) qui ne met pas à jour `task.md`
+est considérée comme **incomplète**.
+
+Cette règle est OBLIGATOIRE : la présence et la mise à jour de `task.md` sont vérifiées avant tout merge de branche liée à un chantier.
+
+## 16. Défis des admins & leaderboard
+
+Les "défis des admins" sont des examens spéciaux configurés exclusivement
+par les administrateurs.
+
+### Règles fondamentales
+
+- Un défi admin définit :
+  - le nombre de questions
+  - la durée totale
+  - les règles spécifiques du défi
+- L’utilisateur ne peut modifier aucun paramètre
+- Le timer est bloquant
+- La soumission est forcée à l’expiration du temps
+
+### Leaderboard
+
+Chaque défi admin dispose d’un leaderboard dédié affichant
+les **10 meilleures performances**.
+
+#### Règles de classement (officielles)
+
+1. Score décroissant
+2. Temps passé croissant
+3. Date de soumission la plus ancienne
+
+Une seule entrée par utilisateur est affichée dans le leaderboard
+(la meilleure performance).
+
+Ces règles sont non négociables et doivent être respectées
+par toute implémentation présente ou future.
 
 ## Référence officielle — Workflow Git
 
