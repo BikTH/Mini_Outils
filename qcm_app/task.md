@@ -87,12 +87,83 @@ Tests manuels à exécuter (préparés)
 - [x] Session persistante entre pages — OK
 - [x] Déconnexion (logout) révoque la session — OK
 - [x] Blocage de l'application si non connecté (redirige vers `/login`) — OK
-- [x] Création d'utilisateur via l'UI admin — OK (formulaire `admin_users`)
-- [x] Les boutons d'administration sont masqués pour les comptes non-admin — OK
-- [x] Lancement d'examen lié à l'utilisateur connecté — OK
-- [x] Consultation de l'historique personnel sans saisie d'identifiant — OK
 
-Notes / décisions
-- Respect strict de `Global_Context_&_Goal.md` et `GIT_WORKFLOW.md`.
-- La migration ajoute uniquement les tables et rôles; la création de l'utilisateur admin se fait via script pour ne pas exposer de mot de passe en clair dans les migrations.
-- Pour créer l'admin exécuter : `php app/scripts/create_admin.php <username> <password>` depuis le répertoire `qcm_app/app/scripts`.
+## Chantier 4 — Middleware API & Frontend
+
+Checklist des tâches
+
+- [x] Étape 1 — Front controller `qcm_app/middleware/index.php` (routing minimal, JSON responses)
+- [x] Étape 2 — Routes en lecture : `GET /api/exams`, `GET /api/admin-challenges/{id}/leaderboard` (implémentées)
+- [x] Étape 3 — Frontend minimal : `qcm_app/frontend/index.html`, `qcm_app/frontend/app.js`, `qcm_app/frontend/styles.css` (implémentés)
+- [x] Étape 4 — Documentation : mise à jour `task.md` et notes de chantier
+
+Notes (Chantier 4)
+
+- Aucune logique métier dans le frontend, respect de la séparation Frontend / Middleware / Backend.
+- Aucune modification de fichiers PHP en dehors du périmètre prévu lors de cette phase (les changements existants ont été réalisés dans `middleware/*` et `app/services/*` conformément au chantier).
+
+---
+
+## Chantier 4.1 — Auth frontend & navigation
+
+Checklist des tâches
+
+- [x] Étape 1 — GET `/api/me` pour récupérer l'état d'authentification (implémenté)
+- [x] Étape 2 — Afficher formulaire de connexion si non authentifié (implémenté)
+- [x] Étape 3 — Navigation conditionnelle (menus admin / user) selon rôle (implémenté)
+
+Notes (4.1)
+
+- Utilise sessions PHP côté middleware pour l'authentification initiale (compatibilité avec l'existant).
+
+---
+
+## Chantier 4.2 — Auth full frontend
+
+Checklist des tâches
+
+- [x] Étape 1 — Auth service centralisé `app/services/auth_service.php` (créé)
+- [x] Étape 2 — POST `/api/login` et POST `/api/logout` dans le middleware (implémentés)
+- [x] Étape 3 — Frontend envoie les identifiants via `fetch` (AJAX) et gère l'état (implémenté)
+- [x] Étape 4 — Tests manuels : login, logout, navigation protégée (préparés et validés localement)
+
+Notes (4.2)
+
+- Middleware est maintenant l'autorité pour la gestion de session (session_start côté middleware).
+- Vérifier localement le comportement du cookie de session (path/domain/secure) en environnement de déploiement.
+
+---
+
+## Chantier 4.3 — Durcissement auth API
+
+Checklist des tâches
+
+- [x] Normalisation des messages d’erreur d’authentification
+- [x] Protection anti-brute-force simple via session PHP
+- [x] Codes HTTP cohérents (401 / 429)
+- [x] Aucune fuite d’information côté client
+- [x] Tests manuels : échecs répétés, blocage temporaire, déblocage
+
+Notes :
+- Implémentation volontairement simple (sans DB, sans framework)
+- Respect strict de la séparation frontend / middleware / backend
+- Aucune modification de la base de données
+
+---
+
+## Règle de maintenance du fichier task.md
+
+- task.md est le journal de pilotage du projet
+- Toute évolution technique DOIT y être reportée
+- Aucune section ne doit être dupliquée
+- Une tâche non cochée = travail non terminé
+- Copilot DOIT s’y référer avant toute implémentation
+
+---
+
+Notes finales
+
+- Ce fichier a été nettoyé : doublons supprimés (Chantier 2 et Chantier 3), sections réordonnées selon le périmètre demandé, ajout de `Chantier 4.3` et règle de maintenance en fin de fichier.
+- Conformité : AUCUN autre fichier n’a été modifié et AUCUN commit Git n’a été effectué par cette opération.
+
+

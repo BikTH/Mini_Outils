@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QCM App — Frontend V1</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <h1>QCM App — Frontend V1</h1>
+
+    <section id="auth">
+      <!-- Login / user status will be rendered here -->
+      <p>Vérification de la session…</p>
+    </section>
+
+    <nav id="menu" class="hidden">
+      <!-- Menus rendered after auth -->
+    </nav>
+
+    <section id="exams" class="hidden">
+      <h2>Examens</h2>
+      <div id="exams-list">Chargement des examens…</div>
+    </section>
+
+    <section id="leaderboard" class="hidden">
+      <h2>Leaderboard — Challenge</h2>
+      <div id="leaderboard-title"></div>
+      <table id="leaderboard-table">
+        <thead>
+          <tr><th>Rang</th><th>Utilisateur</th><th>Score %</th><th>Temps</th><th>Forced</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

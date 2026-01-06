@@ -1,0 +1,11 @@
+/* qcm_app/frontend/styles.css - minimal styling */
+body { font-family: Arial, Helvetica, sans-serif; background:#f7f7f7; color:#222; }
+.container { max-width:900px; margin:3rem auto; background:#fff; padding:1.5rem; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+h1,h2 { color:#333 }
+ul { list-style:none; padding:0 }
+li { padding:0.5rem 0; border-bottom:1px solid #eee }
+button { margin-top:0.5rem; padding:0.3rem 0.6rem }
+.hidden { display:none }
+table { width:100%; border-collapse:collapse; margin-top:0.8rem }
+td,th { padding:0.4rem 0.6rem; border:1px solid #eee; text-align:left }
+.error { color:#b00 }
