@@ -1,5 +1,25 @@
 # Changelog - qcm_app
 
+## [0.5.0] - 2026-01-06
+
+### Ajouté
+- Authentification full frontend via API middleware
+- Endpoints API `/api/login`, `/api/logout`, `/api/me`
+- Middleware API centralisé (routing JSON)
+- Frontend autonome (login, menus, examens, leaderboard)
+- Leaderboard admin_challenge sécurisé (top 10)
+
+### Sécurité
+- Protection anti-brute-force légère (session-based)
+- Messages d’erreur normalisés
+- Codes HTTP cohérents (401 / 429)
+
+### Technique
+- Séparation stricte Frontend / Middleware / Backend
+- Aucune dépendance externe ajoutée
+- task.md structuré comme journal de pilotage
+
+
 ## [0.3.1] - 2025-12-29
 
 ### Corrigé
