@@ -1,5 +1,13 @@
 # Changelog - Mini_Outils
 
+## 2026-01-10 - `qcm_app` v0.7.0
+- **Refonte UI/UX complète** : Système de design moderne avec CSS Variables, layout responsive mobile-first
+- Interface d'examen optimisée : timer visuel avec animations, barre de progression, validation temps réel, raccourcis clavier
+- Composants UI : Cards, Boutons, Formulaires, Alerts, Badges, Tables, Progress bars
+- Accessibilité WCAG AA : contraste conforme, focus states, navigation clavier
+- Nouveaux fichiers : `public/assets/css/style.css` (1200+ lignes), `public/assets/js/exam.js` (500+ lignes)
+- Documentation : `IMPROVEMENTS.md`, `UI_UX_UPGRADE_SUMMARY.md`
+
 ## 2025-12-29 - `qcm_app` v0.3.1
 - Corrigé : Correction du parsing PDF (fix preg_split) pour éviter des warnings et garantir l'import des questions.
 - Technique : Réorganisation des sources (app/core, app/services, app/pdf) et ajout de helpers centralisés — aucun changement de logique métier.
@@ -36,4 +44,3 @@
 - Création d'examens, tirage aléatoire de questions, saisie réponses, score et correction détaillée
 - Support QCM simple/multiple, stockage explication, réponses en session (pas d'historique V1)
 - Architecture ultra-minimaliste : PHP procédural, PDO, point d'entrée unique `public/index.php`
-

@@ -1,5 +1,40 @@
 # Changelog - qcm_app
 
+## [0.7.0] - 2026-01-10
+
+### Ajouté
+- **Système de design moderne** : CSS Variables (design tokens) pour palette de couleurs, typographie, espacements, ombres et transitions
+- **Layout responsive mobile-first** : breakpoints adaptatifs (mobile < 480px, tablet 768px, desktop 1024px+)
+- **Header sticky** : navigation modernisée avec user info badge et collapse sur mobile
+- **Composants UI** :
+  - Cards avec ombres et hover effects
+  - Système de boutons (5 variantes × 3 tailles)
+  - Formulaires modernisés avec focus states
+  - Alerts (success, error, warning, info)
+  - Badges pour statuts
+  - Tables responsives
+  - Progress bars avec couleurs adaptatives
+- **Interface d'examen optimisée** :
+  - Timer visuel HH:MM:SS avec états Warning/Danger et animations (pulse, shake)
+  - Barre de progression des réponses avec couleurs adaptatives
+  - Validation temps réel avec feedback visuel immédiat
+  - Raccourcis clavier (Alt+S soumettre, Alt+N question suivante)
+  - Protection contre navigation accidentelle (beforeunload)
+  - Soumission automatique au timeout
+- **Animations CSS** : fadeIn, slideInRight, shake, pulse avec transitions fluides
+- **Accessibilité WCAG AA** : contraste conforme, focus states visibles, navigation clavier, labels sémantiques
+
+### Technique
+- Nouveau fichier `public/assets/css/style.css` (1200+ lignes de CSS moderne)
+- Nouveau fichier `public/assets/js/exam.js` (500+ lignes de JavaScript modulaire)
+- Structure HTML améliorée dans `public/index.php` avec classes sémantiques
+- Aucune dépendance externe (CSS/JS vanilla)
+- Compatible navigateurs modernes (Chrome, Firefox, Safari, Edge)
+
+### Documentation
+- Ajout de `IMPROVEMENTS.md` : documentation technique détaillée des améliorations
+- Ajout de `UI_UX_UPGRADE_SUMMARY.md` : résumé complet de la mise à niveau UI/UX
+
 ## [0.5.0] - 2026-01-06
 
 ### Ajouté
@@ -11,7 +46,7 @@
 
 ### Sécurité
 - Protection anti-brute-force légère (session-based)
-- Messages d’erreur normalisés
+- Messages d'erreur normalisés
 - Codes HTTP cohérents (401 / 429)
 
 ### Technique
@@ -99,4 +134,3 @@
 ### Limitations V0
 - Pas d'historique des tentatives (réponses stockées en session uniquement)
 - Questions ouvertes conservées mais non notées
-

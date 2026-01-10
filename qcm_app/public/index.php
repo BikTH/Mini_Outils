@@ -23,27 +23,37 @@ if (!in_array($action, $publicActions, true)) {
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>QCM App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QCM App - Plateforme d'examens en ligne</title>
+  <meta name="description" content="Plateforme moderne pour passer des examens QCM en ligne avec correction automatique et statistiques détaillées">
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+  <script src="<?php echo BASE_URL; ?>/assets/js/exam.js" defer></script>
 </head>
 <body>
-  <h1>QCM App (V1)</h1>
-  <nav>
-    <?php if (isAuthenticated()): ?>
-      <span>Bienvenue <?php echo h(currentUser()['display_name'] ?? currentUser()['username']); ?> — </span>
-      <a href="<?php echo BASE_URL; ?>/?action=home">Accueil</a> |
-      <a href="<?php echo BASE_URL; ?>/?action=user_history">Mon historique</a>
-      <?php if (userHasRole('admin')): ?> |
-        <a href="<?php echo BASE_URL; ?>/?action=admin_exams">Menu d'édition des examens</a> |
-        <a href="<?php echo BASE_URL; ?>/?action=admin_users">Gestion des utilisateurs</a> |
-        <a href="<?php echo BASE_URL; ?>/?action=admin_challenges">Admin Challenges</a> |
-        <a href="<?php echo BASE_URL; ?>/?action=admin_user_overview">Stats utilisateurs</a>
-      <?php endif; ?>
-      | <a href="<?php echo BASE_URL; ?>/?action=logout">Se déconnecter</a>
-    <?php else: ?>
-      <a href="<?php echo BASE_URL; ?>/?action=login">Se connecter</a>
-    <?php endif; ?>
-  </nav>
-  <hr>
+  <header class="app-header">
+    <div class="header-content">
+      <h1 class="app-title">QCM App</h1>
+      <nav class="app-nav">
+        <?php if (isAuthenticated()): ?>
+          <span class="user-info">Bienvenue <?php echo h(currentUser()['display_name'] ?? currentUser()['username']); ?></span>
+          <a href="<?php echo BASE_URL; ?>/?action=home" class="nav-link">Accueil</a>
+          <a href="<?php echo BASE_URL; ?>/?action=user_history" class="nav-link">Mon historique</a>
+          <?php if (userHasRole('admin')): ?>
+            <a href="<?php echo BASE_URL; ?>/?action=admin_exams" class="nav-link">Examens</a>
+            <a href="<?php echo BASE_URL; ?>/?action=admin_users" class="nav-link">Utilisateurs</a>
+            <a href="<?php echo BASE_URL; ?>/?action=admin_challenges" class="nav-link">Challenges</a>
+            <a href="<?php echo BASE_URL; ?>/?action=admin_user_overview" class="nav-link">Stats</a>
+          <?php endif; ?>
+          <a href="<?php echo BASE_URL; ?>/?action=logout" class="nav-link">Déconnexion</a>
+        <?php else: ?>
+          <a href="<?php echo BASE_URL; ?>/?action=login" class="nav-link">Se connecter</a>
+        <?php endif; ?>
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="content-wrapper">
 
 <?php
 switch ($action) {
@@ -54,16 +64,29 @@ switch ($action) {
       if ($u !== '' && login($u, $p)) {
         header('Location: ' . BASE_URL . '/'); exit;
       } else {
-        echo "<p style='color:red;'>Identifiants invalides.</p>";
+        echo '<div class="alert alert-error fade-in">Identifiants invalides. Veuillez réessayer.</div>';
       }
     }
     ?>
-    <h2>Connexion</h2>
-    <form method="post" action="<?php echo BASE_URL; ?>/?action=login">
-      <label>Utilisateur: <input name="username" required></label><br>
-      <label>Mot de passe: <input type="password" name="password" required></label><br>
-      <button type="submit">Se connecter</button>
-    </form>
+    <div class="card fade-in" style="max-width: 500px; margin: 3rem auto;">
+      <div class="card-header text-center">
+        <h2 class="card-title">Connexion</h2>
+        <p class="card-subtitle">Connectez-vous pour accéder à vos examens</p>
+      </div>
+      <div class="card-body">
+        <form method="post" action="<?php echo BASE_URL; ?>/?action=login">
+          <div class="form-group">
+            <label class="form-label required" for="username">Nom d'utilisateur</label>
+            <input type="text" id="username" name="username" class="form-input" required autofocus placeholder="Entrez votre nom d'utilisateur">
+          </div>
+          <div class="form-group">
+            <label class="form-label required" for="password">Mot de passe</label>
+            <input type="password" id="password" name="password" class="form-input" required placeholder="Entrez votre mot de passe">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg">Se connecter</button>
+        </form>
+      </div>
+    </div>
     <?php
     break;
 
@@ -74,26 +97,63 @@ switch ($action) {
 
   case 'home':
     $exams = getAllExams();
-    echo "<h2>Examens</h2>";
-    if (empty($exams)) echo "<p>Aucun examen disponible.</p>";
-    else {
-      echo "<ul>";
-      foreach ($exams as $exam) {
-        echo "<li>" . h($exam['titre']) . " - <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "\">Passer</a>";
-        // show available admin challenges for this exam (visible to all users)
-        $chals = getAdminChallengesForExam((int)$exam['id']);
-        if (!empty($chals)) {
-          echo "<ul>";
-          foreach ($chals as $c) {
-            echo "<li>Challenge: " . h($c['title']) . " — " . (int)$c['nb_questions'] . " q" . ($c['time_limit_seconds'] ? (" — " . (int)$c['time_limit_seconds'] . 's') : '') . " — <a href=\"" . BASE_URL . "/?action=take_exam&exam_id=" . $exam['id'] . "&mode=admin_challenge&challenge_id=" . (int)$c['id'] . "\">Participer</a>";
-            echo " &nbsp; <a href=\"" . BASE_URL . "/?action=admin_challenge_leaderboard&challenge_id=" . (int)$c['id'] . "\">Leaderboard</a></li>";
-          }
-          echo "</ul>";
-        }
-        echo "</li>";
-      }
-      echo "</ul>";
-    }
+    ?>
+    <div class="fade-in">
+      <h2>📚 Examens disponibles</h2>
+      <?php if (empty($exams)): ?>
+        <div class="card text-center">
+          <p class="text-gray">Aucun examen disponible pour le moment.</p>
+          <?php if (userHasRole('admin')): ?>
+            <a href="<?php echo BASE_URL; ?>/?action=admin_exams" class="btn btn-primary">Créer un examen</a>
+          <?php endif; ?>
+        </div>
+      <?php else: ?>
+        <?php foreach ($exams as $exam): ?>
+          <div class="exam-card slide-in-right">
+            <h3 class="exam-title"><?php echo h($exam['titre']); ?></h3>
+            <?php if (!empty($exam['description'])): ?>
+              <p class="text-gray"><?php echo h($exam['description']); ?></p>
+            <?php endif; ?>
+            <div class="exam-meta">
+              <?php if ($exam['nb_questions']): ?>
+                <span class="exam-meta-item">📝 <?php echo (int)$exam['nb_questions']; ?> questions</span>
+              <?php endif; ?>
+              <span class="exam-meta-item">📅 Créé le <?php echo date('d/m/Y', strtotime($exam['date_creation'])); ?></span>
+            </div>
+            <a href="<?php echo BASE_URL; ?>/?action=take_exam&exam_id=<?php echo $exam['id']; ?>" class="btn btn-primary">Passer l'examen</a>
+
+            <?php
+            $chals = getAdminChallengesForExam((int)$exam['id']);
+            if (!empty($chals)):
+            ?>
+              <div class="mt-lg">
+                <h4 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--color-info);">🏆 Challenges disponibles</h4>
+                <ul class="challenge-list">
+                  <?php foreach ($chals as $c): ?>
+                    <li class="challenge-item">
+                      <div class="challenge-info">
+                        <div class="challenge-title"><?php echo h($c['title']); ?></div>
+                        <div class="challenge-meta">
+                          <?php echo (int)$c['nb_questions']; ?> questions
+                          <?php if ($c['time_limit_seconds']): ?>
+                            • ⏱️ <?php echo gmdate('H:i:s', (int)$c['time_limit_seconds']); ?>
+                          <?php endif; ?>
+                        </div>
+                      </div>
+                      <div class="challenge-actions">
+                        <a href="<?php echo BASE_URL; ?>/?action=take_exam&exam_id=<?php echo $exam['id']; ?>&mode=admin_challenge&challenge_id=<?php echo (int)$c['id']; ?>" class="btn btn-success btn-sm">Participer</a>
+                        <a href="<?php echo BASE_URL; ?>/?action=admin_challenge_leaderboard&challenge_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary btn-sm">Classement</a>
+                      </div>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              </div>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </div>
+    <?php
     break;
 
   case 'admin_exams':
@@ -457,121 +517,80 @@ switch ($action) {
     $_SESSION['exam_time_limit'] = $timeLimit; // seconds or null
 
     ?>
-    <h2>Passer: <?php echo h($exam['titre']); ?> (mode: <?php echo h($mode); ?>)</h2>
+    <div class="card fade-in">
+      <div class="card-header">
+        <h2 class="card-title"><?php echo h($exam['titre']); ?></h2>
+        <p class="card-subtitle">Mode: <span class="badge badge-primary"><?php echo h($mode); ?></span></p>
+      </div>
+    </div>
+
     <?php if ($timeLimit !== null): ?>
-      <p><strong>Temps limite:</strong> <span id="timeLeftDisplay"><?php echo gmdate('H:i:s', intval($timeLimit)); ?></span></p>
+      <div class="timer-display" id="timerContainer">
+        <div style="font-size: 0.875rem; margin-bottom: 0.25rem;">⏱️ Temps restant</div>
+        <div id="timeLeftDisplay" data-time-limit="<?php echo intval($timeLimit); ?>">
+          <?php echo gmdate('H:i:s', intval($timeLimit)); ?>
+        </div>
+      </div>
     <?php endif; ?>
-  <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm" onsubmit="return validateExamForm()">
+
+  <form method="post" action="<?php echo BASE_URL; ?>/?action=submit_exam" id="examForm">
   <input type="hidden" name="forced_submit" id="forced_submit" value="0">
     <?php if (isAuthenticated()): ?>
-      <p>Vous êtes connecté en tant que <strong><?php echo h(currentUser()['username']); ?></strong>. Votre tentative sera liée à ce compte.</p>
       <input type="hidden" name="user_identifier" value="<?php echo h(currentUser()['username']); ?>">
     <?php else: ?>
-      <label>Votre identifiant (email ou pseudo) :
-          <input type="text" name="user_identifier" value="<?php echo isset($_SESSION['user_identifier']) ? h($_SESSION['user_identifier']) : ''; ?>">
-      </label>
-      <p style="font-size:0.9em;color:#666;">(optionnel — permet d'enregistrer votre historique)</p>
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label" for="user_identifier">Votre identifiant (email ou pseudo)</label>
+          <input type="text" id="user_identifier" name="user_identifier" class="form-input" value="<?php echo isset($_SESSION['user_identifier']) ? h($_SESSION['user_identifier']) : ''; ?>" placeholder="Optionnel - pour enregistrer votre historique">
+          <span class="form-hint">Permet de sauvegarder vos tentatives et consulter votre historique</span>
+        </div>
+      </div>
     <?php endif; ?>
-    <hr>
-    <?php foreach ($questions as $i => $q): 
+    <?php foreach ($questions as $i => $q):
       $opts = getOptionsForQuestion($q['id']);
       $isMultiple = $q['type'] === 'qcm_multiple';
       $name = 'q_' . $q['id'] . ($isMultiple ? '[]' : '');
-      $fieldsetId = 'question_' . $q['id'];
     ?>
-    <hr>
-      <fieldset id="<?php echo $fieldsetId; ?>" data-question-id="<?php echo $q['id']; ?>"><legend>Question <?php echo $i+1; ?></legend>
-        <p><?php echo nl2br(h($q['enonce'])); ?></p>
-        <?php foreach ($opts as $opt): ?>
-          <label>
-            <input type="<?php echo $isMultiple ? 'checkbox' : 'radio'; ?>" name="<?php echo h($name); ?>" value="<?php echo $opt['id']; ?>" class="answer-input" data-question-id="<?php echo $q['id']; ?>">
-            <?php echo h($opt['label'] . '. ' . $opt['texte']); ?>
-          </label><br>
-        <?php endforeach; ?>
-        <span class="error-message" id="error_<?php echo $q['id']; ?>" style="color:red;display:none;">Veuillez répondre à cette question.</span>
+      <fieldset class="question-fieldset fade-in" data-question-id="<?php echo $q['id']; ?>" style="animation-delay: <?php echo min($i * 50, 500); ?>ms;">
+        <legend class="question-legend">
+          Question <?php echo $i+1; ?> / <?php echo count($questions); ?>
+          <?php if ($isMultiple): ?>
+            <span class="badge badge-warning" style="margin-left: 0.5rem;">Choix multiple</span>
+          <?php endif; ?>
+        </legend>
+
+        <p class="question-text"><?php echo nl2br(h($q['enonce'])); ?></p>
+
+        <div class="options-list">
+          <?php foreach ($opts as $opt): ?>
+            <label class="option-label">
+              <input type="<?php echo $isMultiple ? 'checkbox' : 'radio'; ?>"
+                     name="<?php echo h($name); ?>"
+                     value="<?php echo $opt['id']; ?>"
+                     class="answer-input"
+                     data-question-id="<?php echo $q['id']; ?>">
+              <span class="option-text"><?php echo h($opt['label'] . '. ' . $opt['texte']); ?></span>
+            </label>
+          <?php endforeach; ?>
+        </div>
+
+        <span class="error-message hidden" id="error_<?php echo $q['id']; ?>">
+          ⚠️ Veuillez répondre à cette question.
+        </span>
       </fieldset>
     <?php endforeach; ?>
-      <div id="formError" style="color:red;display:none;margin:10px 0;font-weight:bold;"></div>
-      <button type="submit">Valider</button>
+
+      <div id="formError" class="hidden"></div>
+
+      <div class="card" style="margin-top: var(--spacing-xl); text-align: center;">
+        <p class="text-gray" style="margin-bottom: var(--spacing-md); font-size: var(--font-size-sm);">
+          💡 <strong>Astuce:</strong> Alt+S pour soumettre • Alt+N pour question suivante non répondue
+        </p>
+        <button type="submit" class="btn btn-success btn-lg">
+          ✅ Valider l'examen
+        </button>
+      </div>
     </form>
-    <?php if ($timeLimit !== null): ?>
-    <script>
-    // countdown with hh:mm:ss display; on timeout set forced_submit flag and submit
-    (function(){
-      var timeLeft = <?php echo intval($timeLimit); ?>; // seconds
-      var display = document.getElementById('timeLeftDisplay');
-      function fmt(s){
-        var h = Math.floor(s/3600); var m = Math.floor((s%3600)/60); var sec = s%60;
-        return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
-      }
-      if (display) display.textContent = fmt(timeLeft);
-      var interval = setInterval(function(){
-        timeLeft--; if (display) display.textContent = fmt(Math.max(0, timeLeft));
-        if (timeLeft <= 0) {
-          clearInterval(interval);
-          // mark forced and submit
-          var forced = document.getElementById('forced_submit');
-          if (forced) forced.value = '1';
-          var form = document.getElementById('examForm');
-          if (form) { form.submit(); }
-        }
-      }, 1000);
-    })();
-    </script>
-    <?php endif; ?>
-    <script>
-    function validateExamForm() {
-        var form = document.getElementById('examForm');
-        var fieldsets = form.querySelectorAll('fieldset[data-question-id]');
-        var hasError = false;
-        var unansweredQuestions = [];
-        
-        // Réinitialiser les messages d'erreur
-        document.getElementById('formError').style.display = 'none';
-        fieldsets.forEach(function(fieldset) {
-            var errorSpan = fieldset.querySelector('.error-message');
-            if (errorSpan) errorSpan.style.display = 'none';
-        });
-        
-        // Vérifier chaque question
-        fieldsets.forEach(function(fieldset) {
-            var questionId = fieldset.getAttribute('data-question-id');
-            var inputs = fieldset.querySelectorAll('input[type="radio"], input[type="checkbox"]');
-            var answered = false;
-            
-            inputs.forEach(function(input) {
-                if (input.checked) {
-                    answered = true;
-                }
-            });
-            
-            if (!answered) {
-                hasError = true;
-                unansweredQuestions.push(questionId);
-                var errorSpan = fieldset.querySelector('.error-message');
-                if (errorSpan) {
-                    errorSpan.style.display = 'inline';
-                    fieldset.style.border = '2px solid red';
-                }
-            } else {
-                fieldset.style.border = '';
-            }
-        });
-        
-        if (hasError) {
-            var errorMsg = 'Veuillez répondre à toutes les questions avant de valider.';
-            if (unansweredQuestions.length > 0) {
-                errorMsg += ' Questions non répondues : ' + unansweredQuestions.length;
-            }
-            document.getElementById('formError').textContent = errorMsg;
-            document.getElementById('formError').style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return false;
-        }
-        
-        return true;
-    }
-    </script>
     <?php
     break;
 
@@ -672,65 +691,195 @@ switch ($action) {
 
   $_SESSION['last_attempt_id'] = $attemptId;
 
-  echo "<h2>Résultat</h2>";
-  echo "<p>Score : " . round($scoreSum, 2) . " / " . round($totalPoints, 2) . "</p>";
-  echo '<p><a href="' . BASE_URL . '/?action=show_correction&attempt_id=' . $attemptId . '">Voir la correction détaillée</a></p>';
+  $percentage = $totalPoints > 0 ? round(($scoreSum / $totalPoints) * 100, 2) : 0;
+  $exam = getExamById($examId);
+  ?>
+  <div class="card fade-in text-center" style="max-width: 600px; margin: 3rem auto;">
+    <div class="card-header">
+      <h2 class="card-title">✅ Examen terminé !</h2>
+      <p class="card-subtitle"><?php echo h($exam['titre']); ?></p>
+    </div>
+    <div class="card-body">
+      <?php if ($isForced): ?>
+        <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+          ⏰ Temps écoulé - Soumission automatique
+        </div>
+      <?php endif; ?>
+
+      <div class="stats-grid" style="margin: 2rem 0;">
+        <div class="stat-card">
+          <div class="stat-value"><?php echo round($scoreSum, 2); ?></div>
+          <div class="stat-label">Points obtenus</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value"><?php echo $percentage; ?>%</div>
+          <div class="stat-label">Score</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value"><?php echo (int)$totalPoints; ?></div>
+          <div class="stat-label">Total points</div>
+        </div>
+      </div>
+
+      <div class="progress-bar-container" style="margin: 2rem 0;">
+        <div class="progress-bar <?php echo $percentage >= 80 ? 'success' : ($percentage >= 50 ? 'warning' : 'danger'); ?>" style="width: <?php echo $percentage; ?>%;">
+          <?php echo $percentage; ?>%
+        </div>
+      </div>
+
+      <p class="text-gray mb-lg">
+        <?php
+        if ($percentage >= 80) {
+          echo "🎉 Excellent travail ! Vous maîtrisez bien le sujet.";
+        } elseif ($percentage >= 50) {
+          echo "👍 Bon travail ! Quelques révisions et ce sera parfait.";
+        } else {
+          echo "💪 Continuez vos efforts ! La correction vous aidera à progresser.";
+        }
+        ?>
+      </p>
+    </div>
+    <div class="card-footer" style="display: block;">
+      <a href="<?php echo BASE_URL; ?>/?action=show_correction&attempt_id=<?php echo $attemptId; ?>" class="btn btn-primary btn-lg">
+        📋 Voir la correction détaillée
+      </a>
+      <a href="<?php echo BASE_URL; ?>/?action=home" class="btn btn-secondary btn-lg" style="margin-top: 0.5rem;">
+        🏠 Retour à l'accueil
+      </a>
+    </div>
+  </div>
+  <?php
     break;
 
   case 'show_correction':
     // Support pour attempt_id (nouveau système)
     $attemptId = isset($_GET['attempt_id']) ? (int)$_GET['attempt_id'] : null;
-    
+
     if ($attemptId) {
         $attempt = getAttemptById($attemptId);
         if (!$attempt) {
-            echo "<p>Tentative introuvable.</p>";
+            echo '<div class="card"><p class="alert alert-error">Tentative introuvable.</p></div>';
             break;
         }
-        
+
         $exam = getExamById($attempt['exam_id']);
-        echo "<h2>Correction de l'examen : " . h($exam['titre']) . "</h2>";
-        echo "<p>Score : " . round($attempt['score_auto'], 2) . " / " . round($attempt['total_points'], 2) . "</p>";
-        echo "<p>Date : " . h($attempt['date_end']) . "</p>";
-        
+        $percentage = $attempt['total_points'] > 0 ? round(($attempt['score_auto'] / $attempt['total_points']) * 100, 2) : 0;
+        ?>
+        <div class="card fade-in">
+          <div class="card-header">
+            <h2 class="card-title">📝 Correction détaillée</h2>
+            <p class="card-subtitle"><?php echo h($exam['titre']); ?></p>
+          </div>
+          <div class="card-body">
+            <div class="stats-grid" style="margin-bottom: 2rem;">
+              <div class="stat-card">
+                <div class="stat-value text-<?php echo $percentage >= 80 ? 'success' : ($percentage >= 50 ? 'warning' : 'error'); ?>">
+                  <?php echo $percentage; ?>%
+                </div>
+                <div class="stat-label">Score final</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value"><?php echo round($attempt['score_auto'], 2); ?></div>
+                <div class="stat-label">Points obtenus</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value"><?php echo date('d/m/Y H:i', strtotime($attempt['date_end'])); ?></div>
+                <div class="stat-label">Date</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <?php
         $answersMap = [];
         foreach ($attempt['answers'] as $a) {
             $answersMap[$a['question_id']] = $a;
         }
-        
+
         $pdo = getPDO();
+        $questionNum = 1;
         foreach ($answersMap as $qid => $ansrow) {
             $stmt = $pdo->prepare("SELECT * FROM questions WHERE id = :id");
             $stmt->execute([':id' => $qid]);
             $q = $stmt->fetch();
             if (!$q) continue;
-            
-            echo "<hr>";
-            echo "<h3>Question</h3>";
-            echo "<p>" . nl2br(h($q['enonce'])) . "</p>";
-            
-            $opts = getOptionsForQuestion($qid);
-            $selected = json_decode($ansrow['selected_option_ids'] ?? '[]', true);
-            if (!is_array($selected)) $selected = [];
-            
-            echo "<ul>";
-            foreach ($opts as $opt) {
-                $isCorrect = (int)$opt['is_correct'] === 1;
-                $userChose = in_array($opt['id'], $selected, true);
-                echo "<li>";
-                if ($isCorrect) echo "<strong>[Bonne réponse]</strong> ";
-                if ($userChose) echo "<em>[Votre choix]</em> ";
-                echo h($opt['label'] . '. ' . $opt['texte']);
-                echo "</li>";
-            }
-            echo "</ul>";
-            
-            echo "<p><strong>Score sur cette question :</strong> " . round((float)$ansrow['partial_score'], 3) . " / 1</p>";
-            
-            if (!empty($q['explication'])) {
-                echo "<p><strong>Explication :</strong><br>" . nl2br(h($q['explication'])) . "</p>";
-            }
+
+            $questionScore = (float)$ansrow['partial_score'];
+            $isFullCorrect = $questionScore >= 0.99;
+            ?>
+            <div class="correction-item fade-in" style="animation-delay: <?php echo min($questionNum * 30, 500); ?>ms;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="margin: 0; color: var(--color-gray-900);">Question <?php echo $questionNum; ?></h3>
+                <div>
+                  <?php if ($isFullCorrect): ?>
+                    <span class="badge badge-success" style="font-size: 1rem;">✓ Correct</span>
+                  <?php elseif ($questionScore > 0): ?>
+                    <span class="badge badge-warning" style="font-size: 1rem;">⚠ Partiel</span>
+                  <?php else: ?>
+                    <span class="badge badge-error" style="font-size: 1rem;">✗ Incorrect</span>
+                  <?php endif; ?>
+                  <span class="badge badge-primary" style="margin-left: 0.5rem;">
+                    <?php echo round($questionScore, 2); ?> / 1 point
+                  </span>
+                </div>
+              </div>
+
+              <p class="question-text" style="background-color: var(--color-gray-50); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1rem;">
+                <?php echo nl2br(h($q['enonce'])); ?>
+              </p>
+
+              <?php
+              $opts = getOptionsForQuestion($qid);
+              $selected = json_decode($ansrow['selected_option_ids'] ?? '[]', true);
+              if (!is_array($selected)) $selected = [];
+
+              foreach ($opts as $opt):
+                  $isCorrect = (int)$opt['is_correct'] === 1;
+                  $userChose = in_array($opt['id'], $selected, true);
+
+                  $classes = ['correction-option'];
+                  if ($isCorrect) $classes[] = 'correct';
+                  if ($userChose && !$isCorrect) $classes[] = 'incorrect';
+                  if ($userChose) $classes[] = 'user-choice';
+              ?>
+                <div class="<?php echo implode(' ', $classes); ?>">
+                  <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                    <div style="min-width: 80px;">
+                      <?php if ($isCorrect): ?>
+                        <span class="correction-label" style="background-color: var(--color-success); color: white;">✓ Correcte</span>
+                      <?php endif; ?>
+                      <?php if ($userChose): ?>
+                        <span class="correction-label" style="background-color: var(--color-primary); color: white; margin-top: 0.25rem;">Votre choix</span>
+                      <?php endif; ?>
+                    </div>
+                    <div style="flex: 1;">
+                      <strong><?php echo h($opt['label']); ?>.</strong> <?php echo h($opt['texte']); ?>
+                    </div>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+
+              <?php if (!empty($q['explication'])): ?>
+                <div class="correction-explanation">
+                  <strong style="display: block; margin-bottom: 0.5rem; color: var(--color-info);">💡 Explication :</strong>
+                  <p style="margin: 0;"><?php echo nl2br(h($q['explication'])); ?></p>
+                </div>
+              <?php endif; ?>
+            </div>
+            <?php
+            $questionNum++;
         }
+        ?>
+
+        <div class="card" style="text-align: center; margin-top: 2rem;">
+          <a href="<?php echo BASE_URL; ?>/?action=user_history" class="btn btn-primary btn-lg">
+            📊 Voir mon historique
+          </a>
+          <a href="<?php echo BASE_URL; ?>/?action=home" class="btn btn-secondary btn-lg" style="margin-top: 0.5rem;">
+            🏠 Retour à l'accueil
+          </a>
+        </div>
+        <?php
     } else {
         // Ancien système (session) - rétrocompatibilité
         $res = $_SESSION['last_exam_result'] ?? null;
@@ -951,10 +1100,12 @@ switch ($action) {
     break;
 
   default:
-    echo "<p>Action inconnue</p>";
+    echo '<div class="card"><p class="alert alert-error">Action inconnue</p></div>';
     break;
 }
 ?>
+    </div>
+  </main>
 </body>
 </html>
 
